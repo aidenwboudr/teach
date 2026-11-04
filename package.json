@@ -1,0 +1,15 @@
+{
+  "name": "teach",
+  "version": "1.0.0",
+  "description": "A one-to-one tutor on top of Claude Code: probes what you know, plans a fact-checked path, teaches one step at a time, and keeps spaced review.",
+  "license": "MIT",
+  "type": "module",
+  "private": true,
+  "bin": { "teach": "cli.mjs" },
+  "engines": { "node": ">=22.5" },
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test --test-concurrency=1 test/*.test.mjs",
+    "check": "for f in *.mjs lib/*.mjs test/*.mjs public/*.js; do node --check \"$f\" || exit 1; done"
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "groups": {
+    "cond": "Conditional probability",
+    "bayes": "Bayes"
+  },
+  "checks": [],
+  "items": [
+    {
+      "type": "card",
+      "group": "cond",
+      "node": "1",
+      "front": "P(A|B) in words",
+      "back": "Of the cases where B happened, the share where A happened too.",
+      "id": "97e3ab59e3"
+    },
+    {
+      "type": "mcq",
+      "group": "cond",
+      "node": "2",
+      "prompt": "A test is 90% sensitive. Which is 90%?",
+      "options": [
+        "P(positive | condition)",
+        "P(condition | positive)",
+        "P(positive)"
+      ],
+      "answer": 0,
+      "why": "Sensitivity is about people who have it: how often they test positive.",
+      "id": "3d4a867e58"
+    },
+    {
+      "type": "trap",
+      "group": "cond",
+      "node": "2",
+      "wrong": "If the test is 90% accurate, a positive means a 90% chance you have it.",
+      "right": "That depends on the base rate: with a rare condition most positives are false positives.",
+      "id": "9e835d182c"
+    },
+    {
+      "type": "recall",
+      "group": "bayes",
+      "node": "3",
+      "prompt": "1 in 100 people have the condition. Out of 1,000 people, how many have it?",
+      "answer": "10",
+      "accept": "^\\s*10\\s*$",
+      "id": "35354cec48"
+    }
+  ]
+}

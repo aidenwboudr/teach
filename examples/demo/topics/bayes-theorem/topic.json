@@ -1,0 +1,113 @@
+{
+  "v": 1,
+  "slug": "bayes-theorem",
+  "title": "Bayes' theorem",
+  "goal": "Work out the chance someone has a condition given a positive test, and explain why it's often low.",
+  "why": "exam",
+  "course": "Intro statistics",
+  "deadline": "2026-12-10",
+  "status": "active",
+  "phase": "teach",
+  "next": "Step 4: natural frequencies. Start from the 1-in-100 table and ask for a prediction before the reveal.",
+  "integrity": "",
+  "created": "2026-11-04T18:41:01.693Z",
+  "updated": "2026-11-04T18:41:01.694Z",
+  "map": [
+    {
+      "strand": "Conditional probability",
+      "has": "P(A|B) from a two-way table",
+      "missing": "turning it around (P(B|A))",
+      "misconception": "P(A|B) = P(B|A) when the wording is long"
+    },
+    {
+      "strand": "Base rates",
+      "has": "percent of a population",
+      "missing": "why a rare condition drags the answer down",
+      "misconception": ""
+    },
+    {
+      "strand": "Algebra with fractions",
+      "has": "solid",
+      "missing": "",
+      "misconception": ""
+    }
+  ],
+  "plan": [
+    {
+      "id": "1",
+      "title": "Conditional probability from a table",
+      "detail": "P(A|B) = the A share of the B row",
+      "deps": [],
+      "status": "done",
+      "result": "2/2",
+      "note": ""
+    },
+    {
+      "id": "2",
+      "title": "P(A|B) is not P(B|A)",
+      "detail": "same table, read the other way",
+      "deps": [],
+      "status": "shaky",
+      "result": "1/2 → re-taught with a tree → 2/2",
+      "note": ""
+    },
+    {
+      "id": "3",
+      "title": "Base rates",
+      "detail": "how many people have it before any test",
+      "deps": [],
+      "status": "done",
+      "result": "2/2",
+      "note": ""
+    },
+    {
+      "id": "4",
+      "title": "Natural frequencies",
+      "detail": "1,000 people through the test, as counts",
+      "deps": [],
+      "status": "current",
+      "result": "",
+      "note": ""
+    },
+    {
+      "id": "5",
+      "title": "Bayes' theorem as a formula",
+      "detail": "the counts, written with P()",
+      "deps": [
+        "4"
+      ],
+      "status": "todo",
+      "result": "",
+      "note": ""
+    },
+    {
+      "id": "6",
+      "title": "Why a positive test can still mean 'probably not'",
+      "detail": "explain it in two sentences",
+      "deps": [
+        "5"
+      ],
+      "status": "todo",
+      "result": "",
+      "note": ""
+    }
+  ],
+  "facts": [
+    "Sensitivity = P(positive | condition); specificity = P(negative | no condition). The textbook writes P(+|D)."
+  ],
+  "sources": [
+    {
+      "label": "OpenIntro Statistics, section 3.2",
+      "path": "",
+      "url": "https://www.openintro.org/book/os/"
+    }
+  ],
+  "sessions": [],
+  "settings": {
+    "model": "opus",
+    "effort": "high",
+    "review": true,
+    "screen": false,
+    "voice": true
+  }
+}

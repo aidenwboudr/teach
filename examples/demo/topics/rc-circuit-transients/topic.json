@@ -1,0 +1,77 @@
+{
+  "v": 1,
+  "slug": "rc-circuit-transients",
+  "title": "RC circuit transients",
+  "goal": "Solve for the capacitor voltage after a switch closes, from the differential equation.",
+  "why": "class",
+  "course": "Intro circuits",
+  "deadline": "",
+  "status": "paused",
+  "phase": "plan",
+  "next": "Plan approved up to step 3; start with KCL at the capacitor node.",
+  "integrity": "",
+  "created": "2026-11-04T18:41:01.702Z",
+  "updated": "2026-11-04T18:41:01.702Z",
+  "map": [
+    {
+      "strand": "KVL/KCL",
+      "has": "series and parallel resistors",
+      "missing": "writing KCL at a node with a capacitor",
+      "misconception": ""
+    },
+    {
+      "strand": "Exponentials",
+      "has": "e^x graph",
+      "missing": "time constants",
+      "misconception": ""
+    }
+  ],
+  "plan": [
+    {
+      "id": "1",
+      "title": "A capacitor's current: i = C dv/dt",
+      "detail": "",
+      "deps": [],
+      "status": "todo",
+      "result": "",
+      "note": ""
+    },
+    {
+      "id": "2",
+      "title": "KCL at the capacitor node",
+      "detail": "",
+      "deps": [],
+      "status": "todo",
+      "result": "",
+      "note": ""
+    },
+    {
+      "id": "3",
+      "title": "The first-order ODE and its solution",
+      "detail": "",
+      "deps": [],
+      "status": "todo",
+      "result": "",
+      "note": ""
+    },
+    {
+      "id": "4",
+      "title": "Initial and final conditions",
+      "detail": "",
+      "deps": [],
+      "status": "todo",
+      "result": "",
+      "note": ""
+    }
+  ],
+  "facts": [],
+  "sources": [],
+  "sessions": [],
+  "settings": {
+    "model": "opus",
+    "effort": "high",
+    "review": true,
+    "screen": false,
+    "voice": true
+  }
+}
