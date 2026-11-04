@@ -16,10 +16,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import "./lib/config.mjs";   // first: ~/.config/teach/env fills in the settings lib/paths.mjs reads
-import { URL_PUBLIC, DEFAULT_SOCKET, LEARNING, STATE, BROWSER, splitCmd } from "./lib/paths.mjs";
+import { URL_PUBLIC, SOCKET, DEFAULT_SOCKET, LEARNING, STATE, BROWSER, splitCmd } from "./lib/paths.mjs";
 
 process.removeAllListeners("warning");     // node:sqlite (T3 Code's thread titles) is still "experimental"
-const SOCK = process.env.TEACH_SOCKET || DEFAULT_SOCKET;
+const SOCK = SOCKET || DEFAULT_SOCKET;   // SOCKET is expanded (%t, ~): the env file holds it unexpanded
 const LOCAL = fs.existsSync(SOCK);
 const [cmd = "open", ...args] = process.argv.slice(2);
 
