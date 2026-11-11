@@ -205,7 +205,7 @@ function route() {
   if (p === "/" || p === "/new") { page = "home"; $('[data-nav="home"]').setAttribute("aria-current", "page"); return showHome(); }
   if (p === "/review") { page = "review"; $('[data-nav="review"]').setAttribute("aria-current", "page"); return showReview(); }
   if (p === "/profile") { page = "profile"; $('[data-nav="profile"]').setAttribute("aria-current", "page"); return showProfile(); }
-  if ((m = p.match(/^\/t\/([a-z0-9-]+)(?:\/(review|notes|files))?\/?$/))) { page = "topic"; return showTopic(m[1], m[2] || "lesson"); }
+  if ((m = p.match(/^\/t\/([a-z0-9-]+)(?:\/(review|notes|files|transcript))?\/?$/))) { page = "topic"; return showTopic(m[1], m[2] || "lesson"); }
   go("/");
 }
 
@@ -393,17 +393,17 @@ async function upload(file) {
 // Topic: header, tabs, lesson stream, sidebar
 // =====================================================================================================
 
-const T = { slug: null, data: null, tab: "lesson", items: new Map(), status: {}, lastKind: null, actGroup: null };
+const T = { slug: null, data: null, tab: "lesson", status: {} };
 
 async function showTopic(slug, tab) {
-  const same = T.slug === slug;
   T.slug = slug; T.tab = tab;
   document.body.classList.toggle("on-lesson", tab === "lesson");
   try { T.data = await api(`/api/topics/${slug}`); T.link = T.data.link; features(T.data.features); } catch { app.innerHTML = `<main class="home"><div class="empty"><b>No topic “${esc(slug)}”.</b> <a href="/" data-link>Back home</a></div></main>`; return; }
   document.title = `${T.data.topic.title} · Teach`;
   const shell = topicShell();
   app.replaceChildren(shell);
-  if (tab === "lesson") await mountLesson(shell, same);
+  if (tab === "lesson") await mountLesson(shell);
+  else if (tab === "transcript") await mountTranscript(shell);
   else if (tab === "review") await mountTopicReview(shell);
   else if (tab === "notes") await mountNotes(shell);
   else if (tab === "files") mountFiles(shell);
@@ -430,6 +430,7 @@ function topicShell() {
             <a class="tab" role="tab" data-link href="/t/${t.slug}/review" aria-selected="${T.tab === "review"}">Review${T.data.deck.total ? ` <span class="n">${T.data.due || T.data.deck.total}</span>` : ""}</a>
             <a class="tab" role="tab" data-link href="/t/${t.slug}/notes" aria-selected="${T.tab === "notes"}">Notes</a>
             <a class="tab" role="tab" data-link href="/t/${t.slug}/files" aria-selected="${T.tab === "files"}">Files${files ? ` <span class="n">${files}</span>` : ""}</a>
+            <a class="tab" role="tab" data-link href="/t/${t.slug}/transcript" aria-selected="${T.tab === "transcript"}">Transcript</a>
           </div>
         </div>
         <div class="acts">
@@ -505,12 +506,11 @@ function settingsDialog() {
   d.showModal();
 }
 
-// ---------- lesson ----------
+// ---------- lesson: a board (board.js), not a chat ----------
 
-async function mountLesson(shell, keepScroll) {
-  const stream = frag(html`
+async function mountLesson(shell) {
+  const main = frag(html`
     <section class="stream" aria-label="Lesson">
-      <div class="stream-inner"></div>
       <div class="dock">
         <div class="dock-inner">
           <div class="resume" hidden></div>
@@ -542,160 +542,69 @@ async function mountLesson(shell, keepScroll) {
   const side = el("aside", "side");
   side.id = "side";
   side.setAttribute("aria-label", "Plan and notes");
-  shell.append(stream, side);
-  wsMount(shell, stream);
+  shell.append(main, side);
+  boardMount(shell, main);
   renderSide();
-  wireComposer(stream);
-
-  const inner = $(".stream-inner", stream);
-  T.items = new Map(); T.lastKind = null; T.actGroup = null; T.streaming = null;
-  const { items } = await api(`/api/topics/${T.slug}/history`);
-  for (const it of items) addItem(it, true);
-  if (!items.length) inner.append(frag(`<div class="empty">Starting the tutor…</div>`));
+  wireComposer(main);
   T.status = T.data.status || {};
+  const { board } = await api(`/api/topics/${T.slug}/board`);
+  boardRender(board);
   paintDock();
   wsPaint();
-  scrollDown(true);
 }
 
-const stick = { on: true };
-function scroller() { return wsScrolls() ? $(".stream-inner") : document.scrollingElement; }
-window.addEventListener("scroll", () => {
-  if (wsScrolls()) return;
-  const s = scroller();
-  stick.on = s.scrollHeight - s.scrollTop - s.clientHeight < 140;
-}, { passive: true });
-function scrollDown(force) { if (force || stick.on) requestAnimationFrame(() => { scroller().scrollTop = scroller().scrollHeight; }); }
+// ---------- transcript: the whole lesson in order, read-only ----------
 
-function inner() { return $(".stream-inner"); }
-
-function append(node, kind) {
-  const box = inner();
-  if (!box) return node;
-  $(".empty", box)?.remove();
-  box.append(node);
-  T.lastKind = kind;
-  if (kind !== "activity") T.actGroup = null;
-  scrollDown();
-  return node;
+async function mountTranscript(shell) {
+  const doc = frag(`<div class="doc transcript"><div class="doc-head"><h1>Transcript</h1><span class="meta">everything said and asked in this topic, oldest first</span></div><div class="tx"></div></div>`);
+  shell.append(doc);
+  const { items } = await api(`/api/topics/${T.slug}/history`);
+  const box = $(".tx", doc);
+  for (const it of items) { const n = transcriptItem(it); if (n) box.append(n); }
+  if (!box.children.length) box.innerHTML = `<p class="muted">Nothing yet.</p>`;
+  else requestAnimationFrame(() => scrollTo(0, document.scrollingElement.scrollHeight));
 }
 
-function gutter(who, at, extra = "") {
-  return `<aside class="msg-gutter"><span class="who">${who}</span>${extra}<time>${clock(at)}</time></aside>`;
-}
+const gutter = (who, at) => `<aside class="msg-gutter"><span class="who">${who}</span><time>${clock(at)}</time></aside>`;
 
-function addItem(it, past) {
+function transcriptItem(it) {
   switch (it.t) {
     case "divider": {
       const via = { t3: "from a T3 thread", focus: "in the focus tutor", terminal: "in a terminal", app: "" }[it.via] ?? "";
-      if (it.session === 1 && !via && !it.at) return;
-      append(el("div", "divider", [`Session ${it.session}`, it.at ? shortDate(it.at) : "", via].filter(Boolean).join(" · ")), "divider");
-      return;
+      return el("div", "divider", [`Session ${it.session}`, it.at ? shortDate(it.at) : "", via].filter(Boolean).join(" · "));
     }
     case "user": {
       const a = frag(`<article class="msg msg-you">${gutter("You", it.at)}<div class="msg-body"></div></article>`);
-      const body = $(".msg-body", a);
-      body.append(document.createTextNode(it.text || ""));
-      for (const src of it.images || []) { const img = el("img", "thumb"); img.src = src; img.alt = "attached picture"; body.append(img); }
-      append(a, "user");
-      return;
+      $(".msg-body", a).append(document.createTextNode(it.text || ""));
+      for (const src of it.images || []) { const img = el("img", "thumb"); img.src = src; img.alt = "attached picture"; $(".msg-body", a).append(img); }
+      return a;
     }
-    case "text": return tutorText(it, past);
-    case "ask": return askCard(it);
-    case "show": return showItem(it);
-    case "scene": return wsScene(it, past);
-    case "chip": {
-      const ok = / · done/.test(it.text);
-      const box = frag(`<div class="status"><span class="status-chip${ok ? " is-ok" : ""}">${ok ? icon("check", "icon icon-sm") : ""}${mdi(it.text)}</span></div>`);
-      append(box, "chip");
-      return;
+    case "text": {
+      const a = frag(`<article class="msg msg-tutor">${gutter(it.said ? "Said" : "Tutor", it.at)}<div class="msg-body prose"></div></article>`);
+      $(".msg-body", a).innerHTML = md(it.text);
+      return a;
     }
-    case "note": if (it.text) append(frag(`<div class="status"><span class="status-chip">${esc(it.text)}</span></div>`), "note"); return;
-    case "activity": return activity(it);
-  }
-}
-
-// Tutor text: streamed deltas repaint at most every 60 ms; the final text replaces them.
-function tutorText(it, past) {
-  let m = T.items.get(it.id);
-  if (!m) {
-    const a = frag(`<article class="msg msg-tutor${it.said ? " msg-said" : ""}">${gutter(it.said ? "Said" : "Tutor", it.at || Date.now())}<div class="msg-body prose"></div></article>`);
-    m = { el: a, body: $(".msg-body", a), raw: "", final: false };
-    T.items.set(it.id, m);
-    append(a, "text");
-  }
-  m.raw = it.text ?? m.raw;
-  m.final = past || !!it.final || !it.streaming;
-  paintText(m);
-}
-function paintText(m) {
-  m.body.innerHTML = md(m.raw) + (m.final ? "" : '<span class="caret" aria-hidden="true"></span>');
-  if (!m.final && !m.raw) m.body.innerHTML = '<p class="muted"><span class="caret" aria-hidden="true"></span></p>';
-  scrollDown();
-}
-function textDelta(ev) {
-  const m = T.items.get(ev.id);
-  if (!m) return tutorText({ id: ev.id, text: ev.text, streaming: true });
-  m.raw += ev.text;
-  if (!m.queued) { m.queued = true; setTimeout(() => { m.queued = false; if (!m.final) paintText(m); }, 60); }
-}
-
-// Consecutive tool calls share one quiet line: the newest label, a spinner while any is running, the rest folded.
-function activity(it) {
-  const known = T.items.get(it.id);
-  if (known) { Object.assign(known.data, it); paintActivity(known.group); return; }
-  let g = T.lastKind === "activity" && T.actGroup;
-  if (!g) {
-    g = { el: el("div", "activity"), list: [] };
-    append(g.el, "activity");
-    T.actGroup = g;
-  }
-  const entry = { data: { ...it }, group: g };
-  g.list.push(entry);
-  T.items.set(it.id, entry);
-  paintActivity(g);
-}
-function paintActivity(g) {
-  const running = g.list.filter((x) => x.data.state === "running");
-  const last = (running.at(-1) || g.list.at(-1)).data;
-  const rest = g.list.filter((x) => x.data !== last);
-  const agents = running.filter((x) => x.data.agent).length;
-  g.el.innerHTML = `${running.length ? '<span class="spinner" aria-hidden="true"></span>' : icon("check", "icon icon-sm done-mark")}<span>${esc(last.label)}${agents > 1 ? ` · ${agents} agents` : ""}</span>` +
-    (rest.length ? `<details class="fold-inline"><summary>${rest.length} more</summary><ul>${rest.map((x) => `<li>${esc(x.data.label)}${x.data.state === "error" ? ' <span class="t">failed</span>' : ""}</li>`).join("")}</ul></details>` : "");
-}
-
-function showItem(it) {
-  const s = it.show || {};
-  const p = s.path || "";
-  if (/\.html?$/i.test(p) || s.kind === "html") {
-    const w = frag(`<article class="msg msg-tutor">${gutter("", it.at)}<div class="msg-body"><div class="widget"><div class="widget-bar"><span>${esc(s.title || "Interactive")}</span><span class="tag">sandboxed</span>
-      <a class="btn btn-sm btn-quiet" href="${fileURL(p)}" target="_blank" rel="noreferrer">${icon("open", "icon icon-sm")}Open</a></div>
-      <iframe title="${esc(s.title || "interactive figure")}" sandbox="allow-scripts allow-forms" src="${fileURL(p)}" style="height:${Number(s.height) || 420}px"></iframe></div>
-      ${s.caption ? `<p class="aside">${mdi(s.caption)}</p>` : ""}</div></article>`);
-    append(w, "show");
-  } else if (p) {
-    append(frag(`<article class="msg msg-tutor">${gutter("", it.at)}<div class="msg-body prose"><figure><img src="${fileURL(p)}" alt="${esc(s.title || "figure")}">
-      ${s.caption || s.title ? `<figcaption>${mdi(s.caption || s.title)}</figcaption>` : ""}</figure></div></article>`), "show");
+    case "ask": {
+      const a = frag(`<article class="msg msg-tutor">${gutter("", it.at)}<div class="msg-body prose"></div></article>`);
+      if (it.status === "pending") { $(".msg-body", a).innerHTML = `<div class="status-chip">Question set · waiting on the board</div>`; return a; }
+      paintAsk({ it, body: $(".msg-body", a), answers: [], focus: 0 });
+      return a;
+    }
+    case "show": {
+      const s = it.show || {};
+      if (!s.path) return frag(`<div class="status"><span class="status-chip">Figure${s.title ? ` · ${esc(s.title)}` : ""}</span></div>`);
+      return frag(`<div class="status"><a class="status-chip" href="${fileURL(s.path)}" target="_blank" rel="noreferrer">${icon("open", "icon icon-sm")}Figure${s.title ? ` · ${esc(s.title)}` : ""}</a></div>`);
+    }
+    case "scene": return frag(`<div class="status"><span class="status-chip">Scene · ${esc(it.scene?.title || "untitled")}</span></div>`);
+    case "chip": return frag(`<div class="status"><span class="status-chip${/ · done/.test(it.text) ? " is-ok" : ""}">${mdi(it.text)}</span></div>`);
+    case "note": return it.text ? frag(`<div class="status"><span class="status-chip">${esc(it.text)}</span></div>`) : null;
+    default: return null;
   }
 }
 
 // ---------- question cards ----------
 
 const PURPOSE = { probe: "Probe", check: "Check", review: "Review", setup: "Setup", approve: "Your call", practice: "Practice" };
-
-function askCard(it) {
-  const prev = T.items.get(it.id);
-  if (prev) {
-    if (it.onScreen && !prev.it.onScreen && prev.it.status === "pending") toast("Question on your screen · answer it there or here", "teal");
-    prev.it = { ...prev.it, ...it, ask: it.ask || prev.it.ask }; paintAsk(prev); return;
-  }
-  if (!it.ask) return;   // a status note (on screen or not) for a card this page doesn't have
-  const a = frag(`<article class="msg msg-tutor">${gutter("", it.at)}<div class="msg-body prose"></div></article>`);
-  const card = { el: a, body: $(".msg-body", a), it, answers: it.ask.questions.map(() => ({})), focus: 0 };
-  T.items.set(it.id, card);
-  append(a, "ask");   // into the trail first: paintAsk leaves a marker there, then lifts a waiting card into the focus area
-  paintAsk(card);
-}
 
 function paintAsk(card) {
   const { it } = card, ask = it.ask, open = it.status === "pending";
@@ -728,7 +637,7 @@ function paintAsk(card) {
   }
   card.body.replaceChildren(form);
   card.form = form;
-  wsPlaceAsk(card);
+  card.painted?.(card);
 }
 
 const isAnswered = (a) => a && (a.idk || a.own || a.choice !== undefined || (a.choices && a.choices.length) || (a.text && a.text.trim()) || (a.value !== undefined && a.value !== "") || a.order || a.task);
@@ -902,10 +811,10 @@ async function submitAsk(card) {
 // Number keys pick in the question being worked on; Enter submits the open card.
 document.addEventListener("keydown", (e) => {
   if (page !== "topic" || T.tab !== "lesson") return;
-  const typing = e.target.matches("textarea, input, select");
+  const typing = e.target.matches("textarea, input, select") || !!e.target.closest(".stage-canvas, .predict");
   if (e.key === "Escape" && T.status.busy) { e.preventDefault(); api(`/api/topics/${T.slug}/stop`, {}); return; }
   if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
-  const card = [...T.items.values()].reverse().find((x) => x.form && x.it?.status === "pending");
+  const card = boardPendingCard();
   if (!card) {
     if (e.key === "p" || e.key === "P") { e.preventDefault(); menuAction("pause"); }
     return;
@@ -974,11 +883,10 @@ function wireComposer(stream) {
     const text = ta.value.trim();
     if (!text && !pending.images.length && !pending.files.length) return;
     const body = { text, images: pending.images.slice(), files: pending.files.filter((f) => f.path).map((f) => f.path) };
-    addItem({ t: "user", id: `local-${Date.now()}`, text: text + (body.files.length ? `\n\nAttached: ${pending.files.map((f) => f.name).join(", ")}` : ""), images: body.images.map((im) => `data:${im.media_type};base64,${im.data}`), at: new Date().toISOString() });
+    boardEcho(text + (body.files.length ? `\n\nAttached: ${pending.files.map((f) => f.name).join(", ")}` : ""), body.images.length);
     ta.value = ""; grow();
     pending.images = []; pending.files = []; paint();
-    stick.on = true; scrollDown(true);
-    try { await api(`/api/topics/${T.slug}/message`, body); } catch (err) { append(frag(`<div class="error-line"><span>Couldn't send: ${esc(err.message)}</span></div>`), "error"); }
+    try { await api(`/api/topics/${T.slug}/message`, body); } catch (err) { boardError(`Couldn't send: ${err.message}`); }
   });
   $(".stop", form).addEventListener("click", () => api(`/api/topics/${T.slug}/stop`, {}));
   $(".screen-chip", stream).addEventListener("click", async (e) => {
@@ -1005,7 +913,7 @@ function paintDock() {
   if (!w.hidden) w.innerHTML = `<span class="spinner" aria-hidden="true"></span><span>${T.status.watching ? `Your turn on screen: ${mdi(T.status.watching)}.` : "Your turn on screen."} The tutor is watching. Ask here or with <kbd>Super+/</kbd>.</span>`;
   const resume = $(".resume", dock);
   const t = T.data.topic;
-  const waiting = [...T.items.values()].some((x) => x.form && x.it?.status === "pending");
+  const waiting = !!boardPendingCard();
   const show = !T.status.alive && !waiting && t.sessions.length && t.status !== "done";
   resume.hidden = !show;
   if (show) {
@@ -1039,26 +947,17 @@ function onTopicEvent(ev) {
     return;
   }
   if (ev.t === "topic") return refreshTopic();
-  if (ev.t === "state") { T.status = ev; paintDock(); renderSide(); wsPaint(); return; }
+  if (ev.t === "state") { T.status = ev; paintDock(); renderSide(); wsPaint(); paintReply(); return; }
   if (T.tab !== "lesson") return;
   switch (ev.t) {
-    case "text": wsSaid(ev); return tutorText(ev, false);
-    case "delta": return textDelta(ev);
-    case "ask": return askCard(ev);
-    case "activity": return activity(ev);
-    case "chip": return addItem(ev);
-    case "user": return addItem(ev);
-    case "show": return showItem(ev);
-    case "scene": return wsScene(ev, false);
+    case "board": return boardRender(ev.board);
+    case "text": return boardText(ev);
+    case "delta": return boardDelta(ev);
+    case "activity": return boardActivity(ev);
     case "stage": return wsStageEvent(ev);
     case "predicted": return wsPredicted(ev);
-    case "remove": { const x = T.items.get(ev.id); x?.el?.remove(); T.items.delete(ev.id); return; }
-    case "thinking": return;
-    case "idle":
-      for (const m of T.items.values()) if (m.raw !== undefined && !m.final) { m.final = true; paintText(m); }
-      if (ev.error) append(frag(`<div class="error-line"><span>${esc(ev.error)}</span></div>`), "error");
-      return;
-    case "error": append(frag(`<div class="error-line"><span>${esc(ev.text)}</span></div>`), "error"); return;
+    case "idle": return boardIdle(ev);
+    case "error": return boardError(ev.text);
   }
 }
 

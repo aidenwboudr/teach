@@ -4,12 +4,14 @@
 // It speaks just enough MCP (initialize, tools/list, tools/call) and has no dependencies.
 import { createInterface } from "node:readline";
 import { spawn } from "node:child_process";
+import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import * as ops from "./lib/ops.mjs";
 import { getTopic } from "./lib/store.mjs";
 import { Learner } from "./lib/paths.mjs";
 import * as review from "./lib/review.mjs";
+import * as board from "./lib/board.mjs";
 import { CHALK, ROUTE_TTL, takeInbox, chalk, speakSeconds, toast, panel, reviewPanel, reviewGood, screenable } from "./lib/screen.mjs";
 
 const TOPIC = process.env.TEACH_TOPIC;
@@ -23,7 +25,7 @@ const STAGE = fs.existsSync(process.env.TEACH_SCENEHOST || path.join(CHALK_HOME,
 const TOOLS = [
   {
     name: "ask",
-    description: "Show the learner a set of questions as an interactive card in the lesson (probes, step checks, setup questions, plan approval, practice). " +
+    description: "Show the learner a set of questions as an interactive card on the lesson board (probes, step checks, setup questions, plan approval, practice). " +
       "Returns at once: END YOUR TURN right after calling it. Their answers arrive as your next user message, starting '[Answers to question set …]', already graded when you gave answer keys. " +
       "Give every graded question an answer key and a one-line `why`: the app reveals right/wrong and the why the moment they submit, so you don't have to. " +
       "Graded choice options are shuffled by the app, so refer to options by their text, never by letter or position. Never re-ask a set that is still waiting; it stays on screen.",
@@ -123,7 +125,7 @@ const TOOLS = [
   },
   {
     name: "show",
-    description: "Show a figure or an interactive page inline in the lesson: an image/SVG you drew (path), or a self-contained HTML page (html) for a simulator, interactive plot or drill. HTML runs sandboxed (scripts allowed, no network); keep it self-contained. For a plain picture you can also write ![caption](/abs/path.png) in your message.",
+    description: "Put a figure or an interactive page on the lesson board as its own block: an image/SVG you drew (path), or a self-contained HTML page (html) for a simulator, interactive plot or drill. HTML runs sandboxed (scripts allowed, no network); keep it self-contained. A picture inside a note works too: ![caption](/abs/path.png) in its body.",
     inputSchema: {
       type: "object",
       properties: { title: { type: "string" }, path: { type: "string", description: "Absolute path to .png/.svg/.jpg/.html" }, html: { type: "string" }, name: { type: "string", description: "File name for html (saved to the topic's figures/)" }, height: { type: "number" }, caption: { type: "string" } },
@@ -131,7 +133,7 @@ const TOOLS = [
   },
   {
     name: "scene",
-    description: "Put a live scene on the stage of the Teach window's workspace: an animated, interactive board (chalk's scene engine, the 3Blue1Brown look) " +
+    description: "Put a live scene on the lesson board as its own block: an animated, interactive canvas (chalk's scene engine, the 3Blue1Brown look) " +
       "with real TeX, plots that follow sliders, circuits with moving current, steps behind Next. It is the workspace for topics with no app of their own " +
       "(a physics idea, a filter, a proof): they drag, toggle and step through it the way they'd use an editor for code. " +
       `The spec format is chalk's: read ${SCENE_DOC} before your first scene. ` +
@@ -153,6 +155,55 @@ const TOOLS = [
     },
   },
 ];
+
+// The board, the lesson page's workspace (lib/board.mjs). Its notes are the tutor's lasting explanations.
+TOOLS.push({
+  name: "board",
+  description: "Change the lesson board, the learner's workspace. The page has no chat log: your reply text shows over their composer only until their next move, " +
+    "so anything they'll want to look at for longer goes on the board as a note: the explanation of the step you're on, a worked example, a table, the formula they'll use, " +
+    "a pin map or checklist they build up over the lesson. A note whose id is already on the board is replaced in place: keep one evolving note, not near-copies. " +
+    "remove takes block ids (notes, and question sets, scenes and figures by the id the listing shows) or \"all\" (every unpinned block except a question set still waiting). " +
+    "pin keeps a block when the next plan step turns the page. Returns what's on the board.",
+  inputSchema: {
+    type: "object",
+    properties: {
+      put: { type: "array", description: "Notes to add, or to replace by id", items: { type: "object", required: ["id", "body"], properties: {
+        id: { type: "string", description: "Your short name for it, e.g. 'sd-bands' (letters, digits, - _ . :)" },
+        title: { type: "string", description: "Shown in the note's head" },
+        body: { type: "string", description: md },
+        size: { type: "string", enum: ["half", "full"], description: "half (default) sits beside another block on a wide screen; full takes the board's width (wide tables, long derivations)" },
+        pin: { type: "boolean", description: "Keep it across plan steps (reference they'll need again)" },
+        place: { type: "string", enum: ["end", "top"], description: "Where a new note goes (default: after the others)" } } } },
+      remove: { anyOf: [{ type: "array", items: { type: "string" } }, { type: "string", enum: ["all"] }], description: "Block ids to take off the board, or \"all\"" },
+      pin: { type: "array", items: { type: "string" }, description: "Block ids to keep across plan steps" },
+      unpin: { type: "array", items: { type: "string" } },
+    },
+  },
+});
+
+// The board as the server has it now (the server applied this call's change from the stream already, or is about
+// to; the change is applied here too, which is a no-op when it already happened).
+function readBoard() {
+  const SERVER = process.env.TEACH_SERVER || "", p = `/api/topics/${TOPIC}/board`;
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(null), 3000);
+    const finish = (txt) => { clearTimeout(timer); try { const v = JSON.parse(txt).board; resolve(v ? board.fromView(v) : null); } catch { resolve(null); } };
+    if (!SERVER) return finish("");
+    if (SERVER.startsWith("/")) {
+      const req = http.request({ socketPath: SERVER, path: p, headers: { Host: "localhost" } }, (res) => {
+        let d = ""; res.setEncoding("utf8"); res.on("data", (c) => { d += c; }); res.on("end", () => finish(d));
+      });
+      req.on("error", () => finish(""));
+      req.end();
+    } else fetch(SERVER + p).then((r) => r.text()).then(finish, () => finish(""));
+  });
+}
+const withBoard = async (text, change) => {
+  const b = await readBoard();
+  if (!b) return text;
+  if (change) board.apply(b, change);
+  return `${text}\n${board.listing(b)}`;
+};
 
 const SCREEN_TOOLS = [
   {
@@ -280,6 +331,17 @@ async function call(name, args, id) {
     }
     case "update": ops.update(TOPIC, args); return "Updated.";
     case "plan": { const t = ops.plan(TOPIC, args); return `Plan set: ${t.plan.length} steps.`; }
+    case "board": {
+      const op = board.normalizeOp(args);
+      const b = await readBoard();
+      for (const n of op.put) {
+        const x = b?.blocks.find((y) => y.id === n.id);
+        if (x && x.kind !== "note") throw new Error(`"${n.id}" is a ${x.kind === "ask" ? "question set" : x.kind} on the board; give the note an id of its own`);
+      }
+      if (!b) return "Done (the board couldn't be read back just now).";
+      board.apply(b, { t: "board-op", id: "here", op: args });
+      return `Done.\n${board.listing(b)}`;
+    }
     case "step": {
       const t = ops.step(TOPIC, args);
       const i = t.plan.findIndex((x) => x.id === String(args.id)), n = t.plan[i];
@@ -288,14 +350,19 @@ async function call(name, args, id) {
         toast(args.status === "current" ? `Step ${i + 1} of ${t.plan.length} · ${n.title}` : `Step ${i + 1} ${args.status === "done" ? "done" : "shaky, we'll come back"} · ${done} of ${t.plan.length}`,
           args.status === "done" ? "green" : args.status === "shaky" ? "yellow" : "blue");
       }
-      return `Step ${n.id} is ${n.status}.`;
+      if (args.status !== "current") return `Step ${n.id} is ${n.status}.`;
+      const b = await readBoard();
+      if (!b) return `Step ${n.id} is current.`;
+      board.apply(b, { t: "step", id: "here", step: n.id });   // a no-op when the server turned the page already
+      const gone = b.turned?.step === n.id && b.turned.turn === b.turn ? b.turned.removed : [];   // (this turn's page turn only)
+      return `Step ${n.id} is current.${gone.length ? ` The board turned the page; these left: ${gone.map((x) => `${x.title}${x.pending ? " (unanswered: it counts as skipped)" : ""}`).join("; ")}.` : ""}\n${board.listing(b)}`;
     }
     case "cards": { const r = ops.cards(TOPIC, args); return `Added ${r.added} item(s); the deck has ${r.total}.`; }
-    case "show": { ops.normalizeShow(TOPIC, args); return "Shown."; }
+    case "show": { ops.normalizeShow(TOPIC, args); return withBoard("On the board."); }
     case "scene": {
       const sc = ops.normalizeScene(args);   // validate only; the app reads the call from the stream and puts it up
-      return `On the stage in Teach${sc.predict.length ? `. Step ${sc.predict[0].step + 1} waits for their prediction: end your turn now; it arrives as your next message` : ""}.` +
-        (SCREEN ? " Tell them out loud it's in the Teach window." : "");
+      return withBoard(`On the board in Teach${sc.predict.length ? `. Step ${sc.predict[0].step + 1} waits for their prediction: end your turn now; it arrives as your next message` : ""}.` +
+        (SCREEN ? " Tell them out loud it's in the Teach window." : ""));
     }
     default: throw new Error(`unknown tool ${name}`);
   }

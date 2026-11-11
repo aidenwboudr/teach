@@ -5,7 +5,7 @@ want to learn. It probes what you already know with graded multiple-choice quest
 from there to your goal, and teaches it one reasoning step at a time, checking you after each step. It keeps a
 log, a knowledge map and a spaced-repetition deck for every topic, all in a local web app.
 
-![The lesson view: a step card, a question card with numbered choices, and the plan and knowledge map in the sidebar](docs/lesson.png)
+![The lesson board: the current step, a question card with numbered choices, the tutor's reply over the composer, and the plan and knowledge map in the sidebar](docs/lesson.png)
 
 | Home | Review |
 |---|---|
@@ -18,6 +18,10 @@ log, a knowledge map and a spaced-repetition deck for every topic, all in a loca
   sign convention and formula the plan relies on before you see it.
 - **One step per message.** You predict before the reveal, then a short check. It moves on only once you get
   the check right; a miss gets a different explanation and another check.
+- **A board, not a chat.** The lesson is a workspace the tutor arranges: its notes, question cards, live scenes
+  and figures stay in view while you work, and it clears them as the lesson moves on (a new step turns the page;
+  pin what should stay). Its reply to your last move sits over the composer until your next one. Close, pin or
+  keep anything yourself; the Transcript tab has the whole lesson in order.
 - **Question cards with instant feedback**: choice, multi, typed text with a timer, numbers with units,
   ordering, and hands-on tasks (Done / Stuck).
 - **Review**: every check becomes a card in a Leitner schedule (flashcards, multiple choice, type-it, traps,
@@ -114,13 +118,16 @@ teach help
 
 - `server.mjs`: the HTTP server (Node built-ins only) and the page's API.
 - `lib/engine.mjs`: one `claude -p --input-format stream-json` process per topic being taught, with the `teach`
-  MCP server (`mcp.mjs`: `ask`, `update`, `plan`, `step`, `cards`, `show`, `scene`) attached; its stream becomes
-  lesson events. An idle tutor closes after 20 minutes; the next message resumes the same session.
-- `lib/transcript.mjs`: Claude Code transcripts → the lesson view, and finding /teach sessions from other chats.
+  MCP server (`mcp.mjs`: `ask`, `update`, `plan`, `step`, `cards`, `board`, `show`, `scene`) attached; its stream
+  becomes lesson events. An idle tutor closes after 20 minutes; the next message resumes the same session.
+- `lib/board.mjs`: the lesson board and its rules (what replaces what, what leaves by itself), a fold over the
+  lesson's history and the learner's own board actions, so it can always be rebuilt.
+- `lib/transcript.mjs`: Claude Code transcripts → the lesson's history, and finding /teach sessions from other chats.
 - `lib/review.mjs`: the Leitner schedule (20 new items a day). `lib/screen.mjs`, `screen.md`: screen mode.
 - `skill/SKILL.md`: the teaching method the tutor follows. A `skill/local.md` next to it, if you write one, is
   read first: put your own additions there (who you are, your courses' conventions) and keep `SKILL.md` as is.
-- `public/`: the page, one file of plain JavaScript, no build step. KaTeX and marked are vendored.
+- `public/`: the page in plain JavaScript (`app.js`, and `board.js` for the lesson board), no build step. KaTeX
+  and marked are vendored.
 
 ## Develop
 

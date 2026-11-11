@@ -40,6 +40,7 @@ require("readline").createInterface({ input: process.stdin }).on("line", (line) 
   if (!n) out({ type: "system", subtype: "init", session_id: "11111111-1111-4111-8111-111111111111" });
   const id = "msg" + ++n, content = [{ type: "text", text: "Here is my answer." }];
   if (text.includes("SAY")) content.push({ type: "tool_use", id: "say" + n, name: "mcp__teach__say", input: { text: "Out loud." } });
+  if (text.includes("ASK")) content.push({ type: "tool_use", id: "toolu_live" + n, name: "mcp__teach__ask", input: { purpose: "check", questions: [{ kind: "choice", prompt: "Live?", options: ["yes", "no"], answer: 0 }] } });
   out({ type: "assistant", message: { id, content } });
   out({ type: "result", result: "done", is_error: false });
 });
@@ -118,13 +119,21 @@ test("after a restart the link comes back by itself, and a waiting question set 
   start();
   assert.ok(await until(() => log().includes(`route teach ${slug}`), 8000), "the beat after start re-links the live lesson");
   assert.ok(await until(() => /^panel .*teach-ask-toolu_ask1/m.test(log()), 8000), "the pending set is back on screen");
+  assert.ok(await until(async () => (await api(`/api/topics/${slug}/board`)).board.blocks.find((x) => x.id === "toolu_ask1")?.onScreen), "the board's card says it's on the screen");
+});
+
+test("a question set asked in screen mode goes on the board marked as on the screen", async () => {
+  await api(`/api/topics/${slug}/message`, { text: "ASK" });
+  const card = await until(async () => (await api(`/api/topics/${slug}/board`)).board.blocks.find((x) => x.kind === "ask" && x.id.startsWith("toolu_live") && x.onScreen));
+  assert.ok(card, "the live card is on the board with its on-screen flag");
+  assert.ok(await until(() => new RegExp(`^panel .*teach-ask-${card.id}`, "m").test(log())), "and on the screen");
 });
 
 test("turning screen mode off takes Super+/ back to plain chalk, only for its own lesson", async () => {
   fs.writeFileSync(LOG, "");
   await api(`/api/topics/${slug}/settings`, { screen: false });
   assert.ok(await until(() => log().includes("route off")));
-  assert.ok(!fs.existsSync(ROUTE));
+  assert.ok(await until(() => !fs.existsSync(ROUTE)), "the route is gone");   // (the fake chalk logs before it removes it)
   assert.match(log(), /toast Super\+\/ is plain chalk again/);
   // another lesson's switch-off doesn't touch a route it doesn't own
   const other = (await api("/api/topics", { text: "RC filters", screen: true })).slug;
