@@ -693,8 +693,8 @@ function askCard(it) {
   const a = frag(`<article class="msg msg-tutor">${gutter("", it.at)}<div class="msg-body prose"></div></article>`);
   const card = { el: a, body: $(".msg-body", a), it, answers: it.ask.questions.map(() => ({})), focus: 0 };
   T.items.set(it.id, card);
+  append(a, "ask");   // into the trail first: paintAsk leaves a marker there, then lifts a waiting card into the focus area
   paintAsk(card);
-  append(a, "ask");
 }
 
 function paintAsk(card) {

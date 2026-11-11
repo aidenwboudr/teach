@@ -102,20 +102,43 @@ function wsPlanChanged() {
 // ---------- the focus area: what's waiting on them ----------
 
 // A question card waiting for them sits in the focus area; once answered it goes back to its place in the trail.
+// Only while the workspace fits the window: on a phone the page scrolls and the trail ends at the composer, so the
+// card stays there instead of jumping above the whole lesson.
 function wsPlaceAsk(card) {
   const focus = $(".ws-focus");
   if (!focus || !card.el) return;
   if (!card.home) { card.home = el("div", "ask-home"); card.el.after(card.home); }
-  const waiting = card.it.status === "pending";
+  const waiting = card.it.status === "pending" && wsScrolls();
   if (waiting && card.el.parentNode !== focus) {
     for (const other of T.items.values()) if (other !== card && other.form && other.el.parentNode === focus) other.home?.before(other.el);
     focus.append(card.el);
+    wsFocusShape();
+    // stacked under a scene, the focus area scrolls: start it at the card
+    requestAnimationFrame(() => {
+      if (card.el.parentNode !== focus || getComputedStyle(focus).overflowY !== "auto") return;
+      focus.scrollTop += card.el.getBoundingClientRect().top - focus.getBoundingClientRect().top;
+    });
   } else if (!waiting && card.el.parentNode === focus) {
     card.el.classList.add("is-fading");
-    setTimeout(() => { card.home.before(card.el); card.el.classList.remove("is-fading"); scrollDown(); }, 220);
+    setTimeout(() => { card.home.before(card.el); card.el.classList.remove("is-fading"); wsFocusShape(); scrollDown(); }, 220);
   }
   paintStep();
 }
+
+// A scene and a waiting card up together: wide windows put them side by side, narrower ones stack them in a
+// focus area that scrolls (workspace.css, .has-stage.has-ask).
+function wsFocusShape() {
+  $(".lesson.ws")?.classList.toggle("has-ask", !!$(".ws-focus > .msg"));
+}
+
+// The window crossed between fitting the workspace and scrolling the page: put a waiting card where it belongs.
+let wsFitted = null;
+window.addEventListener("resize", () => {
+  const now = wsScrolls();
+  if (now === wsFitted) return;
+  wsFitted = now;
+  if ($(".lesson.ws")) for (const card of T.items.values()) if (card.form) wsPlaceAsk(card);
+}, { passive: true });
 
 // ---------- the stage ----------
 
