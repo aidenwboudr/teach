@@ -1,0 +1,217 @@
+/* Teach — the lesson as a board (public/board.js; rules in lib/board.mjs). Loaded after style.css and built on its
+   tokens (design/workspace/DIRECTION.md): the step card, the board's blocks in a grid, the tutor's latest reply docked
+   over the composer, scenes and their predict cards, the tutor's dot, the Super+/ pill, toasts. The page scrolls as
+   one document; the dock stays at the bottom of the window. */
+
+/* ───────────── layout ───────────── */
+
+.lesson.ws { align-items: stretch; grid-template-rows: auto 1fr; min-height: calc(100vh - var(--bar-h)); }
+.lesson.ws > .stream { --gut: 24px; display: flex; flex-direction: column; min-width: 0; padding: 0 var(--gut); }
+.lesson.ws .dock { margin-inline: calc(-1 * var(--gut)); }   /* it covers the board edge to edge as it scrolls under */
+.ws-top { flex: 1 0 auto; width: 100%; max-width: 1640px; margin: 0 auto; padding: 14px 0 20px; display: grid; gap: 14px; align-content: start; }
+html { scroll-padding: calc(var(--bar-h) + 12px) 0 calc(var(--dock-h, 0px) + 12px); }
+
+/* the goal lives in the rail; the header keeps one line of it */
+.lesson.ws .lesson-head > div:first-child { min-width: 0; }
+.lesson.ws .lesson-title { flex-wrap: nowrap; min-width: 0; overflow: hidden; }
+.lesson.ws .lesson-title h1 { white-space: nowrap; }
+.lesson.ws .lesson-title .goal { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lesson.ws .resume > span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* ───────────── the board ───────────── */
+
+/* columns of at least 520 px: two side by side on a wide window, one on a narrow one; a lone block keeps its column's
+   width (a readable measure), and a full-width block spans them all */
+.board { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 520px), 1fr)); gap: 14px; align-items: start; }
+.board[data-empty="true"] { display: block; min-height: 120px; border: 1px dashed var(--edge-strong); border-radius: var(--r); }
+.board[data-empty="true"]::before { content: "The board is empty. The tutor puts notes, questions, scenes and figures here, and clears them as the lesson moves on.";
+  display: block; padding: 40px 24px; text-align: center; font: 400 15px/1.5 var(--font-serif); color: var(--ink-3); }
+
+.blk { min-width: 0; background: var(--card); border: 1px solid var(--edge); border-radius: var(--r);
+  transition: opacity var(--xfade) var(--ease), box-shadow var(--xfade) var(--ease), border-color var(--xfade) var(--ease); }
+@starting-style { .blk { opacity: 0; } }
+.blk[data-size="full"], .blk:only-child { grid-column: 1 / -1; }
+.blk:only-child:not([data-size="full"]) { width: 100%; max-width: 980px; }
+.blk.is-leaving { opacity: 0; pointer-events: none; }
+.blk.is-new { box-shadow: 0 0 0 2px color-mix(in oklab, var(--blue) 55%, transparent); }
+.blk[data-pin] { border-color: color-mix(in oklab, var(--blue) 35%, var(--edge)); }
+
+.blk-head { display: flex; align-items: center; gap: 10px; min-height: 38px; padding: 3px 6px 3px 16px; border-bottom: 1px solid var(--edge); }
+.blk-label { display: flex; align-items: baseline; gap: 10px; min-width: 0; flex: 1; overflow: hidden; }
+.blk-label .kind { flex: none; font: 500 12px/1 var(--font-mono); color: var(--ink-3); }
+.blk-label .title { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font: 600 14px/1.3 var(--font-ui); color: var(--ink); }
+.blk-acts { display: inline-flex; gap: 0; margin-left: auto; flex: none; opacity: .5; transition: opacity var(--xfade) var(--ease); }
+.blk:hover .blk-acts, .blk:focus-within .blk-acts { opacity: 1; }
+.blk-acts .btn-icon { width: 28px; height: 28px; }
+.blk-pin[aria-pressed="true"] { color: var(--blue); }
+.blk[data-pin] .blk-acts { opacity: 1; }
+@media (hover: none) { .blk-acts { opacity: 1; } }
+
+.blk-body { padding: 14px 18px 16px; min-width: 0; }
+.blk-body > .prose { font: 400 16.5px/1.55 var(--font-serif); color: var(--ink); }
+.blk-body > .prose table { font-size: 15px; }
+.blk-body > .prose :is(p, li, h1, h2, h3, h4), .blk[data-kind="ask"] :is(.qcard-intro, .q-text) { max-width: 92ch; }
+.blk-body > .prose figure img { max-width: 100%; height: auto; }
+
+/* a question set: the card is the block */
+.blk[data-kind="ask"] { background: none; border: 0; }
+.blk[data-kind="ask"] > .blk-head { display: none; }
+.blk[data-kind="ask"] > .blk-body { padding: 0; }
+.blk[data-kind="ask"] .qcard { margin: 0; }
+.qcard-head .blk-acts { margin-left: 4px; margin-right: -10px; }
+.qcard-head .progress + .blk-acts, .qcard-head .score + .blk-acts { margin-left: 4px; }
+
+/* a figure: an image, or a sandboxed interactive page */
+.blk[data-kind="figure"] .blk-body figure { margin: 0; }
+.blk[data-kind="figure"] .blk-body img { display: block; max-width: 100%; height: auto; margin: 0 auto; border-radius: 6px; }
+.figure-html iframe { display: block; width: 100%; border: 0; border-radius: 6px; background: var(--card); }
+.figure-html .figure-open { margin-top: 8px; }
+.figure-html .aside { margin: 8px 0 0; }
+
+/* ───────────── the reply: the tutor's latest turn, over the composer ───────────── */
+
+.reply { --reply-clamp: calc(6 * 1.55em); margin: 0 0 10px; padding: 10px 16px 8px; background: var(--card); border: 1px solid var(--edge);
+  border-left: 3px solid var(--blue); border-radius: var(--r); }
+/* a long reply shows its first lines (the board stays in view); "Show all" opens the rest */
+.reply:not(.is-open) .reply-body { max-height: var(--reply-clamp); overflow: hidden; }
+.reply.is-clamped:not(.is-open) .reply-body { mask-image: linear-gradient(to bottom, #000 62%, transparent); }
+.reply.is-open .reply-body { max-height: 46vh; overflow-y: auto; overscroll-behavior: contain; }
+.reply-more { display: none; }
+.reply:is(.is-clamped, .is-open) .reply-more { display: inline-flex; }
+@media (max-height: 900px) { .reply { --reply-clamp: calc(4 * 1.55em); } }
+.reply-you { margin: 0 0 6px; font: 400 13.5px/1.45 var(--font-ui); color: var(--ink-2); white-space: pre-line; }
+.reply-you .who { margin-right: 8px; font: 500 12px var(--font-mono); color: var(--ink-3); }
+.reply-body { font: 400 16.5px/1.55 var(--font-serif); color: var(--ink); }
+.reply-body > div + div { margin-top: .7em; }
+.reply-body .said { color: var(--ink-2); }
+.reply-foot { display: flex; align-items: center; gap: 10px; margin-top: 4px; font: 400 12.5px/1.4 var(--font-ui); color: var(--ink-3); }
+.reply-foot:not(:has(.reply-status:not(:empty), .reply-keep:not([hidden]))):not(:is(.is-clamped, .is-open) .reply-foot) { display: none; }
+.reply-status { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.reply-status .bad { color: var(--red); }
+.reply-keep { margin-left: auto; }
+
+/* ───────────── the tutor's presence: one dot, always breathing something ───────────── */
+
+.tutor { display: inline-flex; align-items: center; gap: 8px; font: 500 12px/1 var(--font-mono); color: var(--ink-3); white-space: nowrap; transition: color var(--xfade) var(--ease); }
+.tutor i { position: relative; width: 10px; height: 10px; border-radius: 50%; background: var(--blue); flex: none; transition: background-color var(--xfade) var(--ease), border-color var(--xfade) var(--ease); }
+.tutor[data-state="speaking"] { color: var(--ink-2); }
+.tutor[data-state="speaking"] i::after { content: ""; position: absolute; inset: 0; border-radius: 50%; border: 1.5px solid var(--blue); animation: ws-ring 1.5s ease-out infinite; }
+.tutor[data-state="watching"] i { background: transparent; border: 1.5px solid var(--blue); }
+.tutor[data-state="watching"] i::after { content: ""; position: absolute; width: 4px; height: 4px; border-radius: 50%; background: var(--blue); top: 1.5px; left: 1.5px; animation: ws-iris 6s ease-in-out infinite; }
+.tutor[data-state="thinking"] i { animation: ws-breath var(--breath) ease-in-out infinite; }
+.tutor[data-state="waiting"] i { background: transparent; border: 1.5px solid var(--ink-3); }
+@keyframes ws-ring { from { transform: scale(.7); opacity: .9; } to { transform: scale(2.4); opacity: 0; } }
+@keyframes ws-iris { 0%, 100% { transform: translate(0, 0); } 25% { transform: translate(2px, 0); } 50% { transform: translate(2px, 2px); } 75% { transform: translate(0, 2px); } }
+@keyframes ws-breath { 50% { opacity: .3; } }
+
+.ws-status { display: flex; align-items: center; gap: 12px; margin-right: 6px; }
+
+/* where Super+/ goes: teal = the tutor, grey = plain chalk, dashed = chalk unreachable */
+.link-pill { display: inline-flex; align-items: center; gap: 7px; height: 24px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--edge-strong);
+  font: 500 12px/1 var(--font-mono); color: var(--ink-2); background: transparent; white-space: nowrap;
+  transition: color var(--xfade) var(--ease), border-color var(--xfade) var(--ease); }
+.link-pill kbd { font: inherit; color: var(--ink); background: none; border: 0; padding: 0; }
+.link-pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ink-3); flex: none; transition: background-color var(--xfade) var(--ease); }
+.link-pill[data-state="tutor"]::before { background: var(--teal); box-shadow: 0 0 0 3px color-mix(in oklab, var(--teal) 22%, transparent); animation: ws-breath var(--breath) ease-in-out infinite; }
+.link-pill[data-state="offline"] { border-style: dashed; color: var(--ink-3); }
+.link-pill[data-state="offline"]::before { background: transparent; border: 1.5px solid var(--ink-3); width: 5px; height: 5px; }
+.link-pill[data-state="linking"]::before { animation: ws-breath var(--breath) ease-in-out infinite; }
+
+/* ───────────── the step card ───────────── */
+
+.ws-step { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 16px; align-items: end; padding: 12px 18px;
+  background: var(--card-2); border: 1px solid var(--edge); border-radius: var(--r); transition: opacity var(--xfade) var(--ease); }
+.ws-step.is-fading, .is-fading { opacity: 0; }
+.ws-step-head, .ws-step-title, .ws-step-do { grid-column: 1; }
+.ws-step-head { display: flex; align-items: center; gap: 10px; font: 400 12px/1 var(--font-mono); color: var(--ink-3); }
+.ws-step-head .meter { display: inline-flex; gap: 4px; }
+.ws-step-title { margin: 7px 0 0; font: 500 19px/1.25 var(--font-serif); color: var(--ink); }
+.ws-step-do { margin: 4px 0 0; font: 400 15.5px/1.5 var(--font-serif); color: var(--ink-2); max-width: 80ch; }
+.ws-step-do code { color: var(--blue); background: var(--blue-tint); border-radius: 4px; padding: 0 4px; font-size: .88em; }
+.ws-step-wait { grid-column: 2; grid-row: 1 / span 3; }
+
+/* ───────────── a scene: chalk's scene engine, live ───────────── */
+
+.blk[data-kind="scene"] { container-type: inline-size; }
+.blk[data-kind="scene"] > .blk-body { padding: 10px; }
+.stage { position: relative; display: flex; gap: 16px; align-items: flex-start; justify-content: center; }
+.stage-canvas { position: relative; min-width: 0; flex: 0 1 auto; outline: none; border-radius: 8px; touch-action: none; user-select: none; }
+.stage-canvas:focus-visible { box-shadow: 0 0 0 2px var(--blue); }
+/* the scene fits its block and the window between the header and the dock, never past its own size */
+.stage-canvas img { display: block; width: auto; height: auto; max-width: min(100%, var(--w, 100%));
+  max-height: max(260px, calc(100vh - var(--bar-h) - var(--dock-h, 200px) - 96px)); border-radius: 8px; cursor: default; }
+.stage-wait { margin: 40px 24px; font: 400 15.5px/1.5 var(--font-serif); color: var(--ink-3); }
+@container (max-width: 760px) {
+  .stage { flex-direction: column; align-items: stretch; }
+  .stage-canvas { align-self: center; }
+  .predict { flex: none; align-self: stretch; }
+}
+
+/* predict, then reveal: they commit before the step plays */
+.predict { flex: 0 0 272px; align-self: center; background: var(--card-2); border: 1px solid var(--edge-strong); border-radius: var(--r); padding: 12px 14px 14px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .35); transition: border-color var(--xfade) var(--ease), opacity var(--xfade) var(--ease); }
+.predict[data-state="nudge"] { border-color: var(--blue); animation: ws-nudge 1.2s var(--ease) 2; }
+.predict[data-state="right"] { border-color: color-mix(in oklab, var(--green) 60%, var(--edge)); }
+.predict[data-state="wrong"] { border-color: color-mix(in oklab, var(--red) 60%, var(--edge)); }
+@keyframes ws-nudge { 50% { box-shadow: 0 0 0 4px color-mix(in oklab, var(--blue) 30%, transparent), 0 10px 30px rgba(0, 0, 0, .35); } }
+.p-head { display: flex; justify-content: space-between; font: 400 12px/1 var(--font-mono); color: var(--ink-3); }
+.p-q { margin: 8px 0 10px; font: 400 16px/1.45 var(--font-serif); color: var(--ink); }
+.p-q p { margin: 0; }
+.predict .choices { display: grid; gap: 6px; }
+.predict .choice { display: flex; gap: 10px; align-items: baseline; text-align: left; padding: 7px 10px; border-radius: var(--r-sm); border: 1px solid var(--edge);
+  background: transparent; color: var(--ink); font: 400 14.5px/1.35 var(--font-math); cursor: pointer;
+  transition: border-color var(--xfade) var(--ease), background-color var(--xfade) var(--ease); }
+.predict .choice:hover { background: var(--card); }
+.predict .choice[aria-checked="true"] { border-color: var(--blue); background: var(--blue-tint); }
+.predict .choice .key { font: 500 11px/1 var(--font-mono); color: var(--ink-3); border: 1px solid var(--edge-strong); border-radius: 5px; padding: 2px 5px; }
+.predict .num-field { display: flex; gap: 8px; align-items: center; }
+.predict .num-field .unit { font: 400 14px var(--font-math); color: var(--ink-2); }
+.p-foot { margin-top: 12px; display: flex; align-items: center; gap: 10px; }
+.p-foot .hint { font: 400 11.5px var(--font-mono); color: var(--ink-3); }
+.p-verdict { margin: 10px 0 2px; font: 600 15.5px var(--font-serif); }
+.predict[data-state="right"] .p-verdict { color: var(--green); }
+.predict[data-state="wrong"] .p-verdict { color: var(--red); }
+.p-mine { margin: 0; font: 400 14px/1.4 var(--font-ui); color: var(--ink-2); }
+.p-why { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--edge); font: 400 15px/1.45 var(--font-serif); color: var(--ink); }
+
+/* ───────────── a question card that is also on the learner's screen ───────────── */
+
+.qcard[data-screen="live"] { border-color: color-mix(in oklab, var(--teal) 45%, var(--edge)); }
+.qcard .on-screen { display: inline-flex; align-items: center; gap: 6px; color: var(--teal); font-family: var(--font-mono); }
+.qcard .on-screen i { width: 6px; height: 6px; border-radius: 50%; background: var(--teal); animation: ws-breath var(--breath) ease-in-out infinite; }
+.qcard .on-screen.is-done { color: var(--green); }
+.qcard .on-screen.is-done i { background: var(--green); animation: none; }
+
+/* ───────────── toast: one at a time, bottom centre, above the dock ───────────── */
+
+body > .toast { position: fixed; left: 50%; bottom: calc(var(--dock-h, 116px) + 12px); z-index: 50; display: inline-flex; align-items: center; gap: 8px; height: 26px; padding: 0 12px;
+  border-radius: 999px; background: var(--card-2); border: 1px solid var(--edge-strong); color: var(--ink-2); font: 500 12px/1 var(--font-mono);
+  transform: translate(-50%, 4px); opacity: 0; pointer-events: none; animation: none;
+  transition: opacity var(--xfade) var(--ease), transform var(--xfade) var(--ease); }
+body > .toast.is-on { opacity: 1; transform: translate(-50%, 0); }
+body > .toast i { width: 7px; height: 7px; border-radius: 50%; background: var(--blue); }
+body > .toast[data-role="green"] i { background: var(--green); }
+body > .toast[data-role="gold"] i { background: var(--gold); }
+body > .toast[data-role="teal"] i { background: var(--teal); }
+body > .toast[data-role="red"] i { background: var(--red); }
+
+@media (prefers-reduced-motion: reduce) {
+  .tutor i, .tutor i::after, .link-pill::before, .qcard .on-screen i, .predict { animation: none !important; }
+  .blk, .stage, .predict, body > .toast, .is-fading { transition: none !important; }
+}
+
+/* narrow windows (Teach beside the learner's app) and phones */
+.lesson.ws .side-toggle .meter { display: none; }
+@media (max-width: 759px) {
+  .lesson.ws > .stream { --gut: 14px; }
+  .ws-status { gap: 8px; margin-right: 0; }
+  .ws-status .tutor .word { display: none; }
+  .lesson.ws .lesson-head .acts { flex-wrap: nowrap; min-width: 0; }
+  .ws-top { padding-top: 10px; gap: 10px; }
+  .board { gap: 10px; }
+  .blk-body { padding: 12px 14px 14px; }
+  .reply { --reply-clamp: calc(4 * 1.5em); padding: 8px 12px 6px; }
+  .lesson.ws .quick { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-bottom: 6px; }
+  .lesson.ws .quick .chip { flex: none; }
+  .reply-body { font-size: 16px; }
+}

@@ -30,11 +30,12 @@ const lines = [
   L({ type: "user", uuid: "u2", timestamp: at(21), message: { content: [{ type: "tool_result", tool_use_id: "toolu_ask1", content: "Shown." }] } }),
   L({ type: "user", uuid: "u3", timestamp: at(23), message: { content: [{ type: "text", text: "[Answers to question set toolu_ask1]\n1. → 10 (correct)\n2. → \"1%\" (correct)" }] } }),
   L({ type: "assistant", uuid: "a2", timestamp: at(24), message: { id: "m2", content: [{ type: "tool_use", id: "toolu_s3", name: "mcp__teach__step", input: { id: "3", status: "done", result: "2/2" } }, { type: "tool_use", id: "toolu_s4", name: "mcp__teach__step", input: { id: "4", status: "current" } }] } }),
-  L({ type: "assistant", uuid: "a3", timestamp: at(25), message: { id: "m3", content: [{ type: "text", text:
-    "**Step 4: natural frequencies.** Instead of percentages, follow 1,000 real people through the test.\n\n" +
-    "| | test positive | test negative | total |\n|---|---|---|---|\n| has it | 9 | 1 | 10 |\n| doesn't | ? | | 990 |\n| total | | | 1,000 |\n\n" +
-    "The test catches 90% of people who have it, so $0.9 \\times 10 = 9$ true positives. Before I fill in the second row: " +
-    "**how many of the 990 do you think test positive by mistake?** Commit to a guess." }, { type: "tool_use", id: "toolu_ask2", name: "mcp__teach__ask", input: ask2 }] } }),
+  L({ type: "assistant", uuid: "a3", timestamp: at(25), message: { id: "m3", content: [
+    { type: "text", text: "**Step 4: natural frequencies.** Instead of percentages, follow 1,000 real people through the test: the table is on the board. Before I fill in the second row, commit to a guess on the card." },
+    { type: "tool_use", id: "toolu_board1", name: "mcp__teach__board", input: { put: [{ id: "thousand", title: "1,000 people through the test", body:
+      "| | test positive | test negative | total |\n|---|---|---|---|\n| has it | 9 | 1 | 10 |\n| doesn't | ? | | 990 |\n| total | | | 1,000 |\n\n" +
+      "The test catches 90% of people who have it, so $0.9 \\times 10 = 9$ true positives." }] } },
+    { type: "tool_use", id: "toolu_ask2", name: "mcp__teach__ask", input: ask2 }] } }),
   L({ type: "user", uuid: "u4", timestamp: at(26), message: { content: [{ type: "tool_result", tool_use_id: "toolu_ask2", content: "Shown." }] } }),
 ];
 fs.mkdirSync(projectDir(WORK), { recursive: true });

@@ -17,6 +17,7 @@ import { history, findSessions, pendingAsk, digest, sessionFile } from "./lib/tr
 import { sync, lastSync } from "./lib/sync.mjs";
 import * as screen from "./lib/screen.mjs";
 import * as stage from "./lib/stage.mjs";
+import * as board from "./lib/board.mjs";
 
 process.removeAllListeners("warning");            // node:sqlite's ExperimentalWarning, once per process
 
@@ -37,8 +38,14 @@ function broadcast(topic, ev) {
 const emit = (slug, ev) => {
   broadcast(slug, ev);
   if (["state", "idle", "topic"].includes(ev.t)) homeChanged();
-  if (ev.t === "ask" && ev.status === "pending") toScreen(slug, ev);
-  if (ev.t === "scene") showScene(slug, ev.id, ev.scene, {});
+  if (BOARD_EVENTS.has(ev.t)) boardApply(slug, ev);   // first: what follows looks the block up
+  if (ev.t === "ask" && ev.status === "pending" && ev.ask) toScreen(slug, ev);
+  if (ev.t === "scene") {
+    // a scene that updates one already up (replaces, however far down a chain of updates) morphs the block's scene
+    const root = boardOf(slug).blocks.find((x) => x.kind === "scene" && x.calls?.includes(ev.id));
+    if (root) showScene(slug, root.id, { ...ev.scene, replaces: root.id }, root.predictions || {});
+    else showScene(slug, ev.id, ev.scene, {});
+  }
 };
 let homeTimer = null;
 function homeChanged() {
@@ -54,7 +61,8 @@ engine.onTurnEnd = (slug, l) => {
   if (closeAfter.delete(slug)) return engine.close(slug);
   // words that reached the inbox just as a watch ended: nobody picked them up, so they start the next turn
   const said = screen.takeInbox(slug);
-  if (said.length) turn(slug, [{ type: "text", text: said.join("\n\n") }]);
+  if (said.length) turn(slug, [{ type: "text", text: said.join("\n\n") }], { user: { text: said.filter((x) => !x.startsWith("[")).join("\n\n") },
+    answers: said.map((x) => (x.match(/^\[Answers to question set ([^\]\n]+)\]/) || [])[1]).filter(Boolean) });
 };
 engine.onExit = (slug) => {
   scheduleSync("session ended");
@@ -81,6 +89,45 @@ function restartWith(slug, note) {
   if (st.watching !== null) engine.interrupt(slug);   // don't sit out a watch that no longer matters
 }
 
+// ---------- the lesson board ----------
+
+// Each lesson page is a board (lib/board.mjs), not a chat: rebuilt from the lesson's history the first time it's
+// needed, then kept current from the live events. The learner's own board actions are kept with the topic's
+// runtime state, so a rebuild has them too.
+const BOARD_EVENTS = new Set(["turn", "user", "text", "ask", "scene", "show", "remove", "step", "board-op", "predicted", "learner"]);
+const boards = new Map();   // slug → board
+const boardInst = Date.now().toString(36);
+function boardOf(slug) {
+  let b = boards.get(slug);
+  if (!b) {
+    const t = store.getTopic(slug);
+    b = board.fold(t ? topicHistory(t) : [], store.getRuntime(slug).boardOps || []);
+    boards.set(slug, b);
+  }
+  return b;
+}
+const boardView = (slug) => ({ ...board.view(boardOf(slug)), inst: boardInst });
+const boardTimers = new Map();
+function boardApply(slug, item) {
+  const r = board.apply(boardOf(slug), { at: store.now(), ...item });
+  for (const x of r.removed) {
+    if (x.kind === "scene") stage.close(x.id);
+    if (x.kind === "ask" && x.status === "pending") {
+      offScreen(x.id);
+      store.mutateRuntime(slug, (rt) => { rt.dropped = { ...(rt.dropped || {}), [x.id]: store.now() }; });
+    }
+  }
+  if (r.changed && !boardTimers.has(slug)) {
+    boardTimers.set(slug, setTimeout(() => { boardTimers.delete(slug); broadcast(slug, { t: "board", board: boardView(slug) }); }, 40));
+  }
+  return r;
+}
+
+const BOARD_INTRO = `The lesson page is a board now, not a chat: your reply text shows only until ${Learner}'s next move, and anything they need for longer goes on the board (the "board" tool for notes; ask, show and scene make their own blocks). From this turn on, put the current step's explanation on the board as a note, keep replies short, and tidy what no longer helps.`;
+
+// What the learner did on the board since the tutor's last turn: one note at the start of its next turn.
+const boardNotes = new Map();   // slug → [line]
+
 // ---------- question sets on the learner's screen ----------
 
 // In screen mode a question set also pops up on the screen as a chalk panel beside what it's about, so the learner
@@ -96,11 +143,11 @@ function toScreen(slug, ev) {
   for (const [tag, timer] of shown) { clearTimeout(timer); screen.chalk(["remove", tag]); shown.delete(tag); }   // the last card's done
   const p = screen.panel(screen.askPanel(t, ev.id, ev.ask));
   onScreen.set(ev.id, { slug, cancel: p.cancel });
-  broadcast(slug, { t: "ask", id: ev.id, onScreen: true });
+  emit(slug, { t: "ask", id: ev.id, onScreen: true });
   p.done.then((r) => {
     if (onScreen.get(ev.id)?.cancel !== p.cancel) return;
     onScreen.delete(ev.id);
-    broadcast(slug, { t: "ask", id: ev.id, onScreen: false });
+    emit(slug, { t: "ask", id: ev.id, onScreen: false });
     if (r.status === "answered") {
       try { answerSet(slug, ev.id, r.answers || [], "screen"); } catch (e) { console.error("teach: screen answer:", e.message); }
       // it stays up showing right/wrong and the why lines; it goes when the next card comes, or after a while
@@ -117,7 +164,7 @@ function offScreen(id) {
   s.cancel();
 }
 
-// ---------- the workspace stage ----------
+// ---------- scenes on the board ----------
 
 // Scenes the tutor put up (the `scene` tool) run in chalk's scene host; their frames go to the lesson page.
 stage.listen((slug, m) => broadcast(slug, { ...m, t: "stage", kind: m.t }));
@@ -133,11 +180,10 @@ function showScene(slug, id, sc, predictions) {
 // The learner committed a prediction on the stage: graded like a card, kept with the topic's runtime state, the gated
 // step plays, and the tutor hears it (inside a watch, or as the next turn).
 function predictOnStage(slug, id, step, answer) {
-  const t = store.getTopic(slug);
-  const item = topicHistory(t).find((i) => i.t === "scene" && i.id === id);
+  const item = boardOf(slug).blocks.find((x) => x.kind === "scene" && x.id === id);
   const q = item?.scene.predict.find((p) => p.step === step);
   if (!q) throw Object.assign(new Error("no such prediction"), { code: 404 });
-  if (item.predictions[step]) throw Object.assign(new Error("already predicted"), { code: 409 });
+  if (item.predictions?.[step]) throw Object.assign(new Error("already predicted"), { code: 409 });
   const result = ops.grade(q, answer);
   store.mutateRuntime(slug, (r) => { r.predictions = { ...(r.predictions || {}), [id]: { ...(r.predictions?.[id] || {}), [step]: { answer, result, at: store.now() } } }; });
   stage.release(id, step);
@@ -190,9 +236,10 @@ setTimeout(linkBeat, 3000).unref();   // after a restart: pick the live lesson b
 
 // The answers to a question set, from the app's card or a panel on the screen: graded, kept with the topic's
 // runtime state (the app's record of what was asked and answered), shown in the lesson and sent to the tutor.
+const askItem = (slug, id) => boardOf(slug).blocks.find((x) => x.kind === "ask" && x.id === id) || topicHistory(store.getTopic(slug)).find((i) => i.t === "ask" && i.id === id);
+
 function answerSet(slug, id, answers, via) {
-  const t = store.getTopic(slug);
-  const item = topicHistory(t).find((i) => i.t === "ask" && i.id === id);
+  const item = askItem(slug, id);
   if (!item) throw Object.assign(new Error("no such question set"), { code: 404 });
   if (item.status !== "pending") throw Object.assign(new Error("already answered"), { code: 409 });
   if (via !== "screen") offScreen(id);
@@ -203,7 +250,7 @@ function answerSet(slug, id, answers, via) {
   store.mutateRuntime(slug, (r) => { r.answers = { ...(r.answers || {}), [id]: { answers, results, at: store.now(), via } }; });
   emit(slug, { t: "ask", id, status: "answered", answers, results, ask: item.ask, via });
   if (engine.status(slug).watching !== null) screen.toInbox(slug, text);   // a watch is waiting: it takes them
-  else turn(slug, [{ type: "text", text }], {});
+  else turn(slug, [{ type: "text", text }], { answers: id });
   return results;
 }
 
@@ -238,7 +285,7 @@ const sessionsOf = (t) => t.sessions.map((s, i) => ({ ...s, path: sessionPath(s)
 
 function topicHistory(t) {
   const rt = store.getRuntime(t.slug);
-  return history(sessionsOf(t), { answers: rt.answers || {}, plan: t.plan, predictions: rt.predictions || {} });
+  return history(sessionsOf(t), { answers: rt.answers || {}, plan: t.plan, predictions: rt.predictions || {}, dropped: rt.dropped || {} });
 }
 
 function lastActive(t) {
@@ -292,11 +339,19 @@ function kickoff(t, how, extra = {}) {
 }
 
 // Start (or continue) a turn: the learner's content, prefixed by an app note when a process has to start.
+let turnSeq = 0;
 function turn(slug, content = [], opts = {}) {
   const t = store.getTopic(slug);
   if (t.settings.screen) touchLink(slug);
-  const pre = (t.settings.screen ? notes.get(slug) || [] : []).map((text) => ({ type: "text", text }));
-  notes.delete(slug);
+  boardApply(slug, { t: "turn", id: `live-${boardInst}-${++turnSeq}`, user: opts.user, answers: opts.answers });
+  // A lesson that ran as a chat before the board: its tutor hears once that the page changed (the system prompt says how).
+  if (!store.getRuntime(slug).boardIntro) {
+    store.mutateRuntime(slug, (r) => { r.boardIntro = store.now(); });
+    if (t.sessions.length) boardNotes.set(slug, [BOARD_INTRO, ...(boardNotes.get(slug) || [])]);
+  }
+  const done = boardNotes.get(slug);
+  const pre = [...(t.settings.screen ? notes.get(slug) || [] : []), ...(done?.length ? [`[Teach app] board\n${done.join("\n")}`] : [])].map((text) => ({ type: "text", text }));
+  notes.delete(slug); boardNotes.delete(slug);
   if (engine.isAlive(slug)) return engine.send(slug, [...pre, ...(content.length ? content : [{ type: "text", text: `[Teach app] back\n${Learner} is here. Continue.` }])]);
   const how = engine.plan(slug, opts);
   const note = kickoff(t, how, opts) || (content.length ? null : `[Teach app] back\n${Learner} is back${t.next ? ` (resume note: ${t.next})` : ""}. Say where we are in one line, then continue.`);
@@ -395,7 +450,7 @@ async function route(req, res) {
   const p = url.pathname, m = req.method;
   let mm;
 
-  if (m === "GET" && (p === "/" || /^\/(t\/[a-z0-9-]+(\/(review|notes|files))?|review|profile|new)\/?$/.test(p))) return serveFile(res, path.join(PUBLIC, "index.html"));
+  if (m === "GET" && (p === "/" || /^\/(t\/[a-z0-9-]+(\/(review|notes|files|transcript))?|review|profile|new)\/?$/.test(p))) return serveFile(res, path.join(PUBLIC, "index.html"));
   if (m === "GET" && !p.startsWith("/api/")) {
     const f = path.join(PUBLIC, path.normalize(p).replace(/^(\.\.[/\\])+/, ""));
     if (f.startsWith(PUBLIC) && fs.existsSync(f) && fs.statSync(f).isFile()) return serveFile(res, f);
@@ -410,6 +465,7 @@ async function route(req, res) {
     if (c.topic) {
       const st = engine.status(c.topic);
       res.write(`data: ${JSON.stringify({ t: "state", ...st })}\n\n`);
+      if (store.getTopic(c.topic)) res.write(`data: ${JSON.stringify({ t: "board", board: boardView(c.topic) })}\n\n`);
       if (st.streaming) res.write(`data: ${JSON.stringify({ t: "text", id: st.streaming.id, text: st.streaming.text, streaming: true })}\n\n`);
       stage.refreshTopic(c.topic);
     }
@@ -581,6 +637,7 @@ async function route(req, res) {
         features: { sync: SYNC === "git-pr", capture: !!CAPTURE_CMD, open: !!OPEN_CMD, screen: screen.installed() } });
     }
     if (m === "GET" && action === "history") return json(res, 200, { items: topicHistory(t) });
+    if (m === "GET" && action === "board") return json(res, 200, { board: boardView(slug) });
     if (m === "GET" && (action === "log" || action === "sheet")) return json(res, 200, { text: store.readText(path.join(store.topicDir(slug), `${action}.md`)) || "" });
     if (m === "GET" && action === "deck") return json(res, 200, store.getDeck(slug));
 
@@ -604,9 +661,14 @@ async function route(req, res) {
         if (!content.length) return json(res, 400, { error: "empty" });
         // Super+/ on the screen (`teach tell`): the page didn't echo it, so show it there
         if (b.via === "screen") emit(slug, { t: "user", id: `screen-${Date.now()}`, text, images: [], at: store.now(), via: "screen" });
+        const user = { text, images: content.filter((c) => c.type === "image").length };
         // the tutor is waiting on the screen: hand the words to that watch, which answers within the same turn
-        if (engine.status(slug).watching !== null && content.length === 1 && text) { screen.toInbox(slug, text); return ok(res, { to: "watch" }); }
-        turn(slug, content, {});
+        if (engine.status(slug).watching !== null && content.length === 1 && text) {
+          boardApply(slug, { t: "turn", id: `live-${boardInst}-${++turnSeq}`, user });
+          screen.toInbox(slug, text);
+          return ok(res, { to: "watch" });
+        }
+        turn(slug, content, { user });
         return ok(res);
       }
       case "answer": {
@@ -614,12 +676,12 @@ async function route(req, res) {
         catch (e) { return json(res, e.code || 400, { error: e.message }); }
       }
       case "skip": {
-        const item = topicHistory(t).find((i) => i.t === "ask" && i.id === b.id);
+        const item = askItem(slug, b.id);
         if (!item) return json(res, 404, { error: "no such question set" });
         if (item.status !== "pending") return json(res, 409, { error: "already answered" });
         offScreen(b.id);
         emit(slug, { t: "ask", id: b.id, status: "skipped", ask: item.ask });
-        turn(slug, [{ type: "text", text: `[Answers to question set ${b.id}]\n(${Learner} skipped these: they'll answer in their own words or want to move on.)` }], {});
+        turn(slug, [{ type: "text", text: `[Answers to question set ${b.id}]\n(${Learner} skipped these: they'll answer in their own words or want to move on.)` }], { answers: b.id });
         return ok(res);
       }
       case "continue":
@@ -665,6 +727,27 @@ async function route(req, res) {
         emit(slug, { t: "topic" });
         return ok(res);
       }
+      case "board": {
+        // the learner's own board actions: close a block, pin or unpin one, keep the tutor's reply as a note
+        if (!["dismiss", "pin", "unpin", "keep"].includes(b.op)) return json(res, 400, { error: "op must be dismiss, pin, unpin or keep" });
+        const bd = boardOf(slug), target = bd.blocks.find((x) => x.id === String(b.target || ""));
+        if (b.op !== "keep" && !target) return json(res, 404, { error: "that block isn't on the board" });
+        if (b.op === "dismiss" && target.kind === "ask" && target.status === "pending") return json(res, 409, { error: "answer or skip it" });
+        const op = { t: "learner", id: `l-${Date.now().toString(36)}`, op: b.op, target: target?.id, at: store.now() };
+        if (b.op === "keep") {
+          op.text = bd.reply.parts.map((x) => x.text).join("\n\n");
+          if (!op.text.trim()) return json(res, 409, { error: "nothing to keep" });
+          op.title = String(b.title || "").slice(0, 120);
+        }
+        store.mutateRuntime(slug, (r) => { r.boardOps = [...(r.boardOps || []), op].slice(-400); });
+        boardApply(slug, op);
+        const what = target ? `"${board.titleOf(target)}" (\`${target.id}\`)` : "";
+        const note = { dismiss: `${Learner} closed ${what} on the board.`, pin: `${Learner} pinned ${what} on the board.`, unpin: `${Learner} unpinned ${what}.`,
+          keep: `${Learner} kept your last reply on the board as a pinned note (\`${op.id}\`).` }[b.op];
+        const lines = boardNotes.get(slug) || [];
+        if (!lines.includes(note)) boardNotes.set(slug, [...lines, note]);
+        return ok(res, { id: op.id });
+      }
       case "stage": {
         const id = String(b.id || "");
         if (b.op === "predict") {
@@ -672,10 +755,10 @@ async function route(req, res) {
           catch (e) { return json(res, e.code || 400, { error: e.message }); }
         }
         if (b.op === "open") {
-          const item = topicHistory(t).findLast((i) => i.t === "scene" && i.id === id);
-          if (!item) return json(res, 404, { error: "no such scene" });
+          const item = boardOf(slug).blocks.find((x) => x.kind === "scene" && x.id === id);
+          if (!item) return json(res, 404, { error: "that scene isn't on the board" });
           if (!stage.available()) return json(res, 503, { error: "chalk's scene host isn't installed on this machine" });
-          showScene(slug, id, { ...item.scene, replaces: undefined }, item.predictions);
+          showScene(slug, id, { ...item.scene, replaces: undefined }, item.predictions || {});
           stage.input(id, { op: "refresh" });
           return ok(res);
         }

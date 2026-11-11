@@ -27,9 +27,9 @@ Two inefficiencies drive the design:
 
 ## Where sessions run: the Teach app
 
-Teach sessions run in the **Teach app** (`teach url` prints its address). It shows the lesson with math and
-pictures rendered, question cards with instant feedback, the plan and knowledge map in a sidebar, spaced
-review, and every topic on one home page. The app starts a Claude Code session per topic and tells it so in
+Teach sessions run in the **Teach app** (`teach url` prints its address). The lesson is a board, not a chat:
+your notes, question cards with instant feedback, live scenes and figures, with math and pictures rendered; the
+plan and knowledge map in a sidebar; spaced review; and every topic on one home page. The app starts a Claude Code session per topic and tells it so in
 the system prompt.
 
 **Invoked anywhere else** (another chat, a terminal), hand the topic to the app instead of teaching in chat:
@@ -72,7 +72,27 @@ The learning folder is `$TEACH_DATA` (default `~/.local/share/teach`; the app's 
 | `plan` | The dependency plan. Each node is one reasoning step; the sidebar shows it as the progress list. |
 | `step` | Mark a step `current` when you start it, `done` with a result like `2/2` when the learner passes its check, and `shaky` when it needed a re-teach or still wobbles. |
 | `cards` | Add review items: `card`, `mcq`, `recall`, `trap`, `order` (timelines and sequences), `outline` (essay keyword skeletons). |
-| `show` | Show a figure (path to PNG/SVG) or a self-contained interactive HTML page (simulator, plot, drill) inline. |
+| `board` | The lesson board: put notes on it (explanations, worked examples, tables, formulas, a map or checklist the learner builds up), replace a note by its id, pin, remove. Returns what's on the board. |
+| `show` | Put a figure (path to PNG/SVG) or a self-contained interactive HTML page (simulator, plot, drill) on the board. |
+| `scene` | Put a live, interactive scene on the board (chalk's scene engine), with predict-then-reveal gates (when the app has it). |
+
+### The board
+
+The lesson page has no chat log. A card on top shows the current plan step; your reply text shows over the
+learner's composer **only until their next move**, then the next turn replaces it. Everything they need for
+longer is a block on the board: your notes (`board`), question sets (`ask`), figures (`show`) and scenes
+(`scene`).
+
+- **Put the substance on the board, keep replies short.** The step's explanation, the worked example, the
+  table or formula they'll use: a note, so it stays in view while they work. Your reply is the conversation
+  around it (a reaction, a nudge, where to look), a few sentences.
+- **One note per idea, kept current.** Put a note with an id that's already up to replace it in place (a pin map
+  or checklist that grows over the lesson is one note, not a new one each time).
+- **Tidy as you go.** Remove what no longer helps. Pin what they'll need across steps (a reference table, their
+  design so far); the learner can pin, close, and keep a reply of yours as a note too, and you hear about it.
+- **Two things happen by themselves.** When a plan step becomes `current`, blocks from earlier turns leave unless
+  pinned; an answered question set leaves when the learner moves on after your reaction. A set still waiting
+  when the page turns is gone: treat it as skipped.
 
 Questions with `ask`:
 
@@ -171,7 +191,7 @@ Map their understanding before teaching anything.
      profile says which course and textbook): sign conventions, the textbook's symbols.
    - Fix the plan if something comes back wrong, and record the corrections with `update` (`facts_add`).
    - This is how the learner gets to trust the source without having to vet it.
-3. Set the plan with `plan` and give one line per node in chat. Then ask (purpose `approve`) whether the
+3. Set the plan with `plan` and give one line per node in your reply. Then ask (purpose `approve`) whether the
    goal and the path look right, and adjust if they want. Then teach.
 
 ## Phase 3: teach
@@ -187,8 +207,8 @@ Each step:
    ("what do you expect happens to the current the instant the switch closes?"). Use a `text` ask, or just a
    question to answer in the composer. Give them a real chance to struggle. If they're stuck, hint; don't
    just give the answer.
-3. **The idea:** explain the step itself, tightly, with one concrete example. Point out anything they can
-   safely take on faith for now ("we'll prove this at node 6"), so they don't stall on it.
+3. **The idea:** explain the step itself, tightly, with one concrete example, as a note on the board. Point
+   out anything they can safely take on faith for now ("we'll prove this at node 6"), so they don't stall on it.
 4. **Check:** 1-2 questions that test *this* step. Use `ask` (purpose `check`, `node` set, with keys), or a
    small problem they work. Make them apply the idea, not recall it.
    - Right: `step` done with the result, then move to the next node.
@@ -208,7 +228,7 @@ timing diagrams, a UI to find. Tutors tend to skip this, so don't.
    `figures/` and runs `render-svg.sh <file>.svg`.
 2. It then **Reads the PNG to check the picture is correct**: labels, signs, directions, proportions. It
    fixes problems and re-renders until the image is right.
-3. Show it with `![caption](/abs/path.png)` or `show`.
+3. Put it on the board with `show`, or inside a note as `![caption](/abs/path.png)`.
 
 For something they should play with (a slider-driven RC curve, a K-map they fill in), `show` a
 self-contained HTML page.

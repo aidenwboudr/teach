@@ -124,10 +124,13 @@ test("history: app asks, answers, chips, hidden app notes; fork duplicates and f
   fs.writeFileSync(path.join(dir, "b.jsonl"), lines.join("\n") + "\n" + L({ type: "assistant", uuid: "a3", message: { model: "<synthetic>", content: [{ type: "text", text: "No response requested." }] } }) + "\n" + L({ type: "user", uuid: "u5", message: { content: [{ type: "text", text: "why qE?" }] } }) + "\n");
   const h = tr.history([{ path: path.join(dir, "a.jsonl") }, { path: path.join(dir, "b.jsonl") }], { answers: { T1: { answers: [{ choice: 0 }], results: [{ ok: true }] } }, plan: [{ id: "1", title: "Charge" }] });
   const kinds = h.map((i) => i.t);
-  assert.deepEqual(kinds, ["divider", "user", "text", "ask", "chip", "activity", "divider", "user"]);
-  assert.equal(h[1].text, "E vs B");
-  assert.equal(h[3].status, "answered");
-  assert.equal(h[4].text, "Step 1 · Charge · done · 2/2");
+  // each thing the learner or the app sent starts a turn (the board's reply card starts over); a background agent's
+  // notice doesn't
+  assert.deepEqual(kinds, ["divider", "turn", "user", "text", "ask", "turn", "chip", "activity", "divider", "turn", "user"]);
+  assert.equal(h[2].text, "E vs B");
+  assert.equal(h[4].status, "answered");
+  assert.equal(h[5].answers, "T1");
+  assert.equal(h[6].text, "Step 1 · Charge · done · 2/2");
   assert.equal(h.at(-1).text, "why qE?");
 });
 
