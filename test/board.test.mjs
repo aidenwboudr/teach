@@ -25,7 +25,7 @@ test("notes go on by id; the same id replaces in place; remove and pin by id", (
 });
 
 test("the board tool's input is checked", () => {
-  assert.throws(() => board.normalizeOp({}), /put, remove, pin or unpin/);
+  assert.throws(() => board.normalizeOp({}), /put, remove, pin, unpin or layout/);
   assert.throws(() => board.normalizeOp({ put: [{ body: "x" }] }), /give each note an id/);
   assert.throws(() => board.normalizeOp({ put: [{ id: "a b", body: "x" }] }), /id/);
   assert.throws(() => board.normalizeOp({ put: [{ id: "a", body: " " }] }), /body is empty/);
@@ -142,7 +142,8 @@ test("fold rebuilds the board from the history and the learner's actions, merged
   assert.deepEqual(ids(b), ["q1", "idea"]);
   assert.equal(b.blocks[1].body, "v2");
   assert.deepEqual(b.reply.parts.map((p) => p.text), ["Right."]);
-  assert.match(board.listing(b), /question set `q1`: Check · step 1 · answered\n- note `idea`: v2/);
+  // (the note came back after the answered set, so the set folds onto the shelf)
+  assert.match(board.listing(b), /question set `q1`: Check · step 1 · answered · on the shelf\n- note `idea`: v2 · in view\nLayout: focus \(the app's choice\): `idea`\./);
   // view → fromView keeps the blocks and drops the bookkeeping
   const copy = board.fromView(JSON.parse(JSON.stringify(board.view(b))));
   assert.deepEqual(ids(copy), ids(b));
@@ -208,4 +209,128 @@ test("a rebuilt board keeps a set that was answered later on the board until the
   assert.equal(b.blocks[0].status, "answered");
   b = board.fold([...items, { t: "turn", id: "t4", at: T(7) }]);
   assert.deepEqual(ids(b), []);
+});
+
+// ---------- what's in view, and how it's arranged ----------
+
+const scene = (id) => ({ t: "scene", id, scene: { title: "PDM", objects: [{}] } });
+const lay = (b) => { const a = board.arrange(b); return { by: a.by, template: a.template, rows: a.rows.map((r) => r.cells.map((c) => c.ids)), shelf: a.shelf }; };
+
+test("the app's layout: an answered set folds away once a newer block is up; the newest scene gets the room", () => {
+  const b = board.newBoard();
+  board.apply(b, { t: "turn", id: "t1" });
+  board.apply(b, ask("approve"));
+  board.apply(b, { t: "turn", id: "t2", answers: "approve" });
+  board.apply(b, { t: "ask", id: "approve", status: "answered", answers: [{ choice: 0 }] });
+  assert.deepEqual(lay(b), { by: "app", template: "focus", rows: [[["approve"]]], shelf: [] }, "just answered: it stays while the tutor reacts");
+  board.apply(b, { t: "step", id: "s1", step: "1" });
+  board.apply(b, scene("sc"));
+  assert.deepEqual(lay(b), { by: "app", template: "focus", rows: [[["sc"]]], shelf: ["approve"] }, "the scene alone gets the room; the stale card is on the shelf");
+  // a note and a waiting check in the same turn: the scene keeps the room, the check then the note stack beside it
+  board.apply(b, put("idea", "PDM is a density"));
+  board.apply(b, ask("check"));
+  assert.deepEqual(lay(b), { by: "app", template: "focus-aside", rows: [[["sc"], ["check", "idea"]]], shelf: ["approve"] });
+  // next turn, the tutor only talks: what it put up last stays in view
+  board.apply(b, { t: "turn", id: "t3", answers: "check" });
+  board.apply(b, { t: "ask", id: "check", status: "answered", answers: [{ choice: 1 }] });
+  assert.deepEqual(lay(b).rows, [[["sc"], ["idea", "check"]]]);
+  // the turn after, it puts up one new note: that's what's in view now, the rest are a click away
+  board.apply(b, { t: "turn", id: "t4" });
+  board.apply(b, put("why", "Because the filter averages"));
+  // (the answered sets left the board when the learner moved on, as before)
+  assert.deepEqual(lay(b), { by: "app", template: "focus", rows: [[["why"]]], shelf: ["sc", "idea"] });
+});
+
+test("two text blocks sit side by side; a full-width note stacks; at most four are in view", () => {
+  const b = board.newBoard();
+  board.apply(b, { t: "turn", id: "t1" });
+  board.apply(b, put("idea", "x"));
+  board.apply(b, ask("q"));
+  assert.deepEqual(lay(b), { by: "app", template: "compare", rows: [[["idea"], ["q"]]], shelf: [] });
+  board.apply(b, put("table", "wide", { size: "full" }));
+  assert.equal(lay(b).template, "stack");
+  assert.deepEqual(lay(b).rows, [[["q"]], [["idea"]], [["table"]]], "the waiting set leads");
+  for (const id of ["n1", "n2", "n3"]) board.apply(b, put(id, "x"));
+  const a = lay(b);
+  assert.equal(a.rows.flat().flat().length, 4);
+  assert.ok(a.rows.flat().flat().includes("q"), "a waiting set is always in view");
+  assert.deepEqual(a.shelf, ["idea", "table"]);
+});
+
+test("the tutor's layout: templates, the shelf, and when it gives way", () => {
+  const b = board.newBoard();
+  board.apply(b, { t: "turn", id: "t1" });
+  board.apply(b, scene("sc"));
+  board.apply(b, put("a", "x"));
+  board.apply(b, put("old", "x"));
+  board.apply(b, { t: "board-op", id: "L1", op: { put: [{ id: "b", body: "y" }], layout: { template: "compare", show: ["a", "b"] } } });
+  assert.deepEqual(lay(b), { by: "tutor", template: "compare", rows: [[["a"], ["b"]]], shelf: ["sc", "old"] });
+  assert.match(board.listing(b), /scene `sc`: PDM · on the shelf[\s\S]*Layout: compare \(yours\): `a` \| `b`\./);
+  // updating a note it shows keeps the layout; the learner folds one: the layout shows the rest
+  board.apply(b, put("a", "x2"));
+  board.apply(b, { t: "learner", id: "l1", op: "shelve", target: "b" });
+  assert.deepEqual(lay(b).rows, [[["a"]]]);
+  // the learner opens one from the shelf: the app arranges it, keeping what the layout had in view
+  board.apply(b, { t: "learner", id: "l2", op: "show", target: "sc" });
+  assert.deepEqual(lay(b), { by: "app", template: "focus-aside", rows: [[["sc"], ["a"]]], shelf: ["old", "b"] });
+  // a new layout names b again: the tutor's call wins over the fold
+  board.apply(b, { t: "board-op", id: "L2", op: { layout: { template: "custom", rows: [["sc", ["a", "b"]]], widths: [[3, 2]] } } });
+  assert.deepEqual(lay(b), { by: "tutor", template: "custom", rows: [[["sc"], ["a", "b"]]], shelf: ["old"] });
+  assert.equal(board.arrange(b).rows[0].cells[0].w, 3);
+  // a question set it didn't place has to be seen: the app takes over, keeping the layout's blocks in view
+  board.apply(b, ask("q"));
+  assert.deepEqual(lay(b), { by: "app", template: "focus-aside", rows: [[["sc"], ["q", "a", "b"]]], shelf: ["old"] });
+  board.apply(b, { t: "board-op", id: "L3", op: { layout: { template: "focus-aside", show: ["q", "sc"] } } });
+  assert.deepEqual(lay(b).rows, [[["q"], ["sc"]]]);
+  // "auto" hands it back; a page turn does too
+  board.apply(b, { t: "board-op", id: "L4", op: { layout: "auto" } });
+  assert.equal(board.arrange(b).by, "app");
+  board.apply(b, { t: "board-op", id: "L5", op: { layout: { template: "focus", show: ["sc"] } } });
+  board.apply(b, { t: "turn", id: "t2" });
+  board.apply(b, { t: "step", id: "s2", step: "2" });
+  assert.equal(b.layout, null);
+});
+
+test("the layout field is checked", () => {
+  const L = (layout) => board.normalizeOp({ layout });
+  assert.deepEqual(L("auto").layout, { template: "auto" });
+  assert.equal(L({ show: ["a", "b"] }).layout.template, "focus-aside");
+  assert.equal(L({ rows: [["a"]] }).layout.template, "custom");
+  assert.throws(() => L({ template: "grid" }), /one of auto, focus/);
+  assert.throws(() => L({ template: "focus", show: ["a", "b"] }), /focus-aside/);
+  assert.throws(() => L({ template: "compare" }), /needs show/);
+  assert.throws(() => L({ template: "custom" }), /needs rows/);
+  assert.throws(() => L({ template: "stack", show: ["a", "a"] }), /twice/);
+  assert.throws(() => L({ template: "stack", show: ["a b"] }), /isn't a block id/);
+  assert.throws(() => L({ template: "custom", rows: [["a", "b", "c", "d", "e"]] }), /at most 4/);
+  assert.throws(() => L({ template: "stack", show: ["a", "b", "c", "d", "e", "f", "g"] }), /at most 6/);
+  // a layout naming a block that isn't there: the tool refuses it, so the board ignores all of the call
+  const b = board.newBoard();
+  board.apply(b, put("a", "x"));
+  board.apply(b, { t: "board-op", id: "bad", op: { put: [{ id: "b", body: "y" }], layout: { template: "compare", show: ["a", "ghost"] } } });
+  assert.deepEqual(ids(b), ["a"]);
+  assert.equal(b.layout, null);
+  assert.deepEqual(board.layoutMissing(b, board.normalizeOp({ put: [{ id: "c", body: "z" }], remove: ["a"], layout: { show: ["a", "c"] } })), ["a"]);
+});
+
+test("a pending question set can't be folded; the arrangement rides along in the view, not in a rebuilt board", () => {
+  const b = board.newBoard();
+  board.apply(b, ask("q"));
+  board.apply(b, { t: "learner", id: "l1", op: "shelve", target: "q" });
+  assert.deepEqual(lay(b).rows, [[["q"]]]);
+  const v = board.view(b);
+  assert.equal(v.arrangement.template, "focus");
+  assert.equal(board.fromView(v).arrangement, undefined);
+});
+
+test("what the learner opened before the tutor's layout doesn't override it; what they open after does", () => {
+  const b = board.newBoard();
+  board.apply(b, { t: "turn", id: "t1" });
+  board.apply(b, put("a", "x"));
+  board.apply(b, put("b", "y"));
+  board.apply(b, { t: "learner", id: "k1", op: "keep", text: "your reply", at: "z" });
+  board.apply(b, { t: "board-op", id: "L1", op: { layout: { template: "focus", show: ["a"] } } });
+  assert.deepEqual(lay(b), { by: "tutor", template: "focus", rows: [[["a"]]], shelf: ["b", "k1"] });
+  board.apply(b, { t: "learner", id: "s1", op: "show", target: "b" });
+  assert.deepEqual(lay(b), { by: "app", template: "compare", rows: [[["a"], ["b"]]], shelf: ["k1"] });
 });

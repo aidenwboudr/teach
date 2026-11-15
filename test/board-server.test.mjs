@@ -41,6 +41,7 @@ require("readline").createInterface({ input: process.stdin }).on("line", (line) 
   if (text.includes("SCENE")) { tool("scene", { scene: spec("RC") }); global.scene = content.at(-1).id; }
   if (text.includes("MORPH")) { tool("scene", { scene: spec("RC " + n), replaces: global.scene }); global.scene = content.at(-1).id; }
   if (text.includes("TEMP")) tool("board", { put: [{ id: "temp", body: "for now" }] });
+  if (text.includes("LAYOUT")) tool("board", { put: [{ id: "side", body: "Beside it" }], layout: { template: "compare", show: ["idea", "side"] } });
   if (text.includes("PIN")) tool("board", { put: [{ id: "pinmap", body: "D9 BCLK", pin: true }] });
   if (text.includes("ASK")) tool("ask", { purpose: "check", node: "1", questions: [{ prompt: "Unpressed, the pin reads?", options: ["low", "high"], answer: 0, why: "The pull-down." }] });
   if (text.includes("STEP2")) { tool("step", { id: "2", status: "current" }); tool("board", { put: [{ id: "step2", body: "Step two's idea" }] }); }
@@ -145,8 +146,9 @@ test("a scene changed twice (each change replacing the one before) morphs the sc
   assert.deepEqual(ops(), [`open ${root}`, `replace ${root}`, `replace ${root}`], "no second scene opened behind the first");
 });
 
-test("the board tool reads the board back and refuses to overwrite a question set with a note", async () => {
+test("the board tool reads the board back and refuses to overwrite a question set with a note", async (t) => {
   const mcp = spawn(process.execPath, [path.join(APP, "mcp.mjs")], { env: { ...process.env, TEACH_TOPIC: SLUG, TEACH_SERVER: `http://127.0.0.1:${PORT}` }, stdio: ["pipe", "pipe", "inherit"] });
+  t.after(() => mcp.kill());   // (even when an assertion fails, or the run would hang on it)
   const replies = [];
   let buf = "";
   mcp.stdout.on("data", (d) => { buf += d; let i; while ((i = buf.indexOf("\n")) >= 0) { replies.push(JSON.parse(buf.slice(0, i))); buf = buf.slice(i + 1); } });
@@ -164,5 +166,32 @@ test("the board tool reads the board back and refuses to overwrite a question se
   assert.match(text, /note `extra`: One more thing/);
   const bad = await call(3, "board", { put: [{ id: "has space", body: "x" }] });
   assert.equal(bad.result.isError, true);
+  // a layout: it reads back with where each block is; one naming a block that isn't there is refused with the listing
+  const laid = (await call(4, "board", { layout: { template: "compare", show: ["idea", "pinmap"] } })).result.content[0].text;
+  assert.match(laid, /note `pinmap`: D9 BCLK · pinned · in view/);
+  assert.match(laid, /note `step2`: Step two's idea · on the shelf/);
+  assert.match(laid, /Layout: compare \(yours\): `idea` \| `pinmap`\./);
+  const miss = await call(5, "board", { layout: { template: "focus", show: ["nowhere"] } });
+  assert.equal(miss.result.isError, true);
+  assert.match(miss.result.content[0].text, /"nowhere" isn't on the board\. Nothing changed\. On the board now/);
   mcp.kill();
+});
+
+test("the tutor lays the board out; the learner folds a block onto the shelf and opens another; the tutor hears both", async () => {
+  let b = await say("LAYOUT");
+  assert.equal(b.arrangement.by, "tutor");
+  assert.deepEqual(b.arrangement.rows.map((r) => r.cells.map((c) => c.ids)), [[["idea"], ["side"]]]);
+  assert.ok(b.arrangement.shelf.includes("pinmap"));
+  let r = await api(`/api/topics/${SLUG}/board`, { op: "shelve", target: "side" });
+  assert.equal(r.ok, true);
+  b = await until(async () => { const x = await board(); return x.arrangement.shelf.includes("side") && x; });
+  assert.deepEqual(b.arrangement.rows.map((row) => row.cells.map((c) => c.ids)), [[["idea"]]]);
+  r = await api(`/api/topics/${SLUG}/board`, { op: "show", target: "pinmap" });
+  b = await until(async () => { const x = await board(); return !x.arrangement.shelf.includes("pinmap") && x; });
+  assert.equal(b.arrangement.by, "app", "something the tutor's layout didn't place came into view");
+  assert.ok(b.arrangement.rows.flatMap((row) => row.cells.flatMap((c) => c.ids)).includes("idea"), "what the layout had in view stays");
+  await say("thanks");
+  const told = heard().at(-1);
+  assert.match(told, /folded "Beside it" \(`side`\) onto the shelf/);
+  assert.match(told, /opened "D9 BCLK" \(`pinmap`\) from the shelf/);
 });

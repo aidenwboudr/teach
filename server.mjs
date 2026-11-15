@@ -728,11 +728,11 @@ async function route(req, res) {
         return ok(res);
       }
       case "board": {
-        // the learner's own board actions: close a block, pin or unpin one, keep the tutor's reply as a note
-        if (!["dismiss", "pin", "unpin", "keep"].includes(b.op)) return json(res, 400, { error: "op must be dismiss, pin, unpin or keep" });
+        // the learner's own board actions: close a block, pin or unpin one, fold it onto the shelf or open it, keep the tutor's reply as a note
+        if (!["dismiss", "pin", "unpin", "shelve", "show", "keep"].includes(b.op)) return json(res, 400, { error: "op must be dismiss, pin, unpin, shelve, show or keep" });
         const bd = boardOf(slug), target = bd.blocks.find((x) => x.id === String(b.target || ""));
         if (b.op !== "keep" && !target) return json(res, 404, { error: "that block isn't on the board" });
-        if (b.op === "dismiss" && target.kind === "ask" && target.status === "pending") return json(res, 409, { error: "answer or skip it" });
+        if ((b.op === "dismiss" || b.op === "shelve") && target.kind === "ask" && target.status === "pending") return json(res, 409, { error: "answer or skip it" });
         const op = { t: "learner", id: `l-${Date.now().toString(36)}`, op: b.op, target: target?.id, at: store.now() };
         if (b.op === "keep") {
           op.text = bd.reply.parts.map((x) => x.text).join("\n\n");
@@ -743,6 +743,7 @@ async function route(req, res) {
         boardApply(slug, op);
         const what = target ? `"${board.titleOf(target)}" (\`${target.id}\`)` : "";
         const note = { dismiss: `${Learner} closed ${what} on the board.`, pin: `${Learner} pinned ${what} on the board.`, unpin: `${Learner} unpinned ${what}.`,
+          shelve: `${Learner} folded ${what} onto the shelf.`, show: `${Learner} opened ${what} from the shelf: it stays in view until they fold it.`,
           keep: `${Learner} kept your last reply on the board as a pinned note (\`${op.id}\`).` }[b.op];
         const lines = boardNotes.get(slug) || [];
         if (!lines.includes(note)) boardNotes.set(slug, [...lines, note]);
