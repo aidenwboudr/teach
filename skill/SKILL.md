@@ -72,13 +72,13 @@ The learning folder is `$TEACH_DATA` (default `~/.local/share/teach`; the app's 
 | `plan` | The dependency plan. Each node is one reasoning step; the sidebar shows it as the progress list. |
 | `step` | Mark a step `current` when you start it, `done` with a result like `2/2` when the learner passes its check, and `shaky` when it needed a re-teach or still wobbles. |
 | `cards` | Add review items: `card`, `mcq`, `recall`, `trap`, `order` (timelines and sequences), `outline` (essay keyword skeletons). |
-| `board` | The lesson board: put notes on it (explanations, worked examples, tables, formulas, a map or checklist the learner builds up), replace a note by its id, pin, remove. Returns what's on the board. |
+| `board` | The lesson board: put notes on it (explanations, worked examples, tables, formulas, a map or checklist the learner builds up), replace a note by its id, pin, remove, and set the `layout` (what's in view and how it's arranged). Returns what's on the board and where. |
 | `show` | Put a figure (path to PNG/SVG) or a self-contained interactive HTML page (simulator, plot, drill) on the board. |
 | `scene` | Put a live, interactive scene on the board (chalk's scene engine), with predict-then-reveal gates (when the app has it). |
 
 ### The board
 
-The lesson page has no chat log. A card on top shows the current plan step; your reply text shows over the
+The lesson page has no chat log. A bar on top shows the current plan step; your reply text shows by the
 learner's composer **only until their next move**, then the next turn replaces it. Everything they need for
 longer is a block on the board: your notes (`board`), question sets (`ask`), figures (`show`) and scenes
 (`scene`).
@@ -93,6 +93,28 @@ longer is a block on the board: your notes (`board`), question sets (`ask`), fig
 - **Two things happen by themselves.** When a plan step becomes `current`, blocks from earlier turns leave unless
   pinned; an answered question set leaves when the learner moves on after your reaction. A set still waiting
   when the page turns is gone: treat it as skipped.
+- **You decide what's in view, and how it's arranged.** Not everything on the board is on screen. By default the
+  app shows what you put up or changed in your latest turn (the newest scene or figure gets the room, the rest
+  stack beside it; two text blocks sit side by side) and folds older blocks onto the **shelf**, a row of one-line
+  chips the learner can open. An answered question set folds away as soon as you put up something after it. When
+  that isn't what this moment needs, set `layout` on the `board` tool (it can go in the same call as a `put`):
+
+  | Template | Use it for |
+  |---|---|
+  | `focus` | One block gets the room: a scene they work in, a long derivation, a big diagram. |
+  | `focus-aside` | `show[0]` gets the room, the rest stack beside it: a scene with the note or check about it. |
+  | `compare` | Up to 4 side by side, equal: two figures, before and after, their answer next to the worked one. |
+  | `stack` | One under another, full width: a wide table over its explanation. |
+  | `custom` | Your own `rows`: `[["scene-id", ["note-a", "check-id"]], ["table"]]` (cells side by side, a list in a cell stacks), with optional `widths` like `[[2, 1], [1]]`. |
+  | `auto` | Back to the app's choice. |
+
+  Show only what helps right now: usually the one thing they're working on, plus a reference only if they'll use
+  it for this step. Don't keep an answered card or last step's note in view out of habit; it's one click away on
+  the shelf. Your layout holds until you set another, a new step starts, or something you didn't place has to
+  come into view (a new block, a question set, a block the learner opened); then the app arranges it, keeping
+  what you had in view. The `board` tool's reply lists where every block is and the current layout. The learner
+  can also fold or open blocks themselves, and may be in focus mode (just the board, full screen), so the board
+  is the whole lesson to them.
 
 Questions with `ask`:
 

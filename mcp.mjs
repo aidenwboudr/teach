@@ -163,7 +163,10 @@ TOOLS.push({
     "so anything they'll want to look at for longer goes on the board as a note: the explanation of the step you're on, a worked example, a table, the formula they'll use, " +
     "a pin map or checklist they build up over the lesson. A note whose id is already on the board is replaced in place: keep one evolving note, not near-copies. " +
     "remove takes block ids (notes, and question sets, scenes and figures by the id the listing shows) or \"all\" (every unpinned block except a question set still waiting). " +
-    "pin keeps a block when the next plan step turns the page. Returns what's on the board.",
+    "pin keeps a block when the next plan step turns the page. " +
+    "layout decides what's in view and how it sits (see the layout field); without one the app arranges it: what you put up or changed in your latest turn is in view, " +
+    "the newest scene or figure gets the room with the rest beside it, and older blocks fold onto the shelf (a one-line chip the learner can open). " +
+    "Returns what's on the board, where each block is and the layout.",
   inputSchema: {
     type: "object",
     properties: {
@@ -177,6 +180,21 @@ TOOLS.push({
       remove: { anyOf: [{ type: "array", items: { type: "string" } }, { type: "string", enum: ["all"] }], description: "Block ids to take off the board, or \"all\"" },
       pin: { type: "array", items: { type: "string" }, description: "Block ids to keep across plan steps" },
       unpin: { type: "array", items: { type: "string" } },
+      layout: {
+        description: "What's in view and how it's arranged, until you set another, a new plan step starts, or something you didn't place has to come into view " +
+          "(then the app arranges it, keeping what you had in view). Every block you don't show folds onto the shelf. Templates: " +
+          "focus (one block gets the room: a scene to work in, a long derivation), focus-aside (show[0] gets the room, the rest stack beside it: a scene with the note or check about it), " +
+          "compare (side by side, equal: two figures, before and after, their answer next to the worked one), stack (one under another, full width: a wide table over its explanation), " +
+          "custom (your own rows), auto (back to the app's choice). Ids are the ones the listing shows; anything you put in the same call counts.",
+        anyOf: [
+          { type: "string", enum: ["auto"] },
+          { type: "object", properties: {
+            template: { type: "string", enum: ["auto", "focus", "focus-aside", "compare", "stack", "custom"] },
+            show: { type: "array", items: { type: "string" }, description: "Block ids to keep in view, the main one first (all templates but custom)" },
+            rows: { type: "array", description: "custom: rows top to bottom; each row is a list of cells side by side (up to 4); a cell is a block id, or a list of ids stacked in it. e.g. [[\"scene-id\", [\"note-a\", \"check-id\"]], [\"table\"]]", items: { type: "array" } },
+            widths: { type: "array", description: "custom: relative widths per row, e.g. [[2, 1], [1]] (default equal)", items: { type: "array", items: { type: "number" } } } } },
+        ],
+      },
     },
   },
 });
@@ -338,6 +356,8 @@ async function call(name, args, id) {
         const x = b?.blocks.find((y) => y.id === n.id);
         if (x && x.kind !== "note") throw new Error(`"${n.id}" is a ${x.kind === "ask" ? "question set" : x.kind} on the board; give the note an id of its own`);
       }
+      const missing = b ? board.layoutMissing(b, op) : [];   // a layout names blocks on the board, or ones this call puts there
+      if (missing.length) throw new Error(`layout: ${missing.map((id) => `"${id}"`).join(", ")} ${missing.length === 1 ? "isn't" : "aren't"} on the board. Nothing changed. ${board.listing(b)}`);
       if (!b) return "Done (the board couldn't be read back just now).";
       board.apply(b, { t: "board-op", id: "here", op: args });
       return `Done.\n${board.listing(b)}`;

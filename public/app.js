@@ -201,7 +201,7 @@ function route() {
   const p = location.pathname;
   let m;
   $$(".nav a").forEach((a) => a.removeAttribute("aria-current"));
-  document.body.classList.remove("on-lesson");
+  document.body.classList.remove("on-lesson", "focus-mode");
   if (p === "/" || p === "/new") { page = "home"; $('[data-nav="home"]').setAttribute("aria-current", "page"); return showHome(); }
   if (p === "/review") { page = "review"; $('[data-nav="review"]').setAttribute("aria-current", "page"); return showReview(); }
   if (p === "/profile") { page = "profile"; $('[data-nav="profile"]').setAttribute("aria-current", "page"); return showProfile(); }
@@ -398,6 +398,7 @@ const T = { slug: null, data: null, tab: "lesson", status: {} };
 async function showTopic(slug, tab) {
   T.slug = slug; T.tab = tab;
   document.body.classList.toggle("on-lesson", tab === "lesson");
+  if (tab !== "lesson") document.body.classList.remove("focus-mode");
   try { T.data = await api(`/api/topics/${slug}`); T.link = T.data.link; features(T.data.features); } catch { app.innerHTML = `<main class="home"><div class="empty"><b>No topic “${esc(slug)}”.</b> <a href="/" data-link>Back home</a></div></main>`; return; }
   document.title = `${T.data.topic.title} · Teach`;
   const shell = topicShell();
@@ -812,8 +813,11 @@ async function submitAsk(card) {
 document.addEventListener("keydown", (e) => {
   if (page !== "topic" || T.tab !== "lesson") return;
   const typing = e.target.matches("textarea, input, select") || !!e.target.closest(".stage-canvas, .predict");
+  // in focus mode Esc leaves it (the Stop button still stops the tutor); otherwise it stops a busy tutor
+  if (e.key === "Escape" && document.body.classList.contains("focus-mode") && !e.target.closest("dialog")) { e.preventDefault(); focusMode(false); return; }
   if (e.key === "Escape" && T.status.busy) { e.preventDefault(); api(`/api/topics/${T.slug}/stop`, {}); return; }
   if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.key === "f" || e.key === "F") { e.preventDefault(); focusMode(!document.body.classList.contains("focus-mode")); return; }
   const card = boardPendingCard();
   if (!card) {
     if (e.key === "p" || e.key === "P") { e.preventDefault(); menuAction("pause"); }

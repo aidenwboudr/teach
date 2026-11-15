@@ -1,10 +1,11 @@
 "use strict";
 // The lesson as a board (lib/board.mjs has its rules). The server owns the board and sends it whole on every change;
 // this paints it and keeps the DOM of every block that didn't change (a scene's canvas, an answer half typed, an
-// interactive figure). On top: the step card. Under it: the board's blocks in a grid (the tutor's notes, question
-// cards, live scenes, figures). Docked over the composer: the tutor's latest reply, which each turn replaces, so it's
-// in view wherever the board is scrolled. Loaded before app.js and uses its helpers ($, el, frag, api, md, T…) at
-// call time.
+// interactive figure). On top: the step bar. Under it: the shelf (blocks folded to a chip) and the blocks in view,
+// arranged the way the server's arrangement says (rows of cells side by side; a cell stacks its blocks): the tutor's
+// layout, or the app's. Docked over the composer: the tutor's latest reply, which each turn replaces, so it's in view
+// wherever the board is scrolled. Focus mode hides everything but the board, the step bar and a slim composer.
+// Loaded before app.js and uses its helpers ($, el, frag, api, md, T…) at call time.
 
 const B = { view: null, rev: -1, inst: null, els: new Map(), cards: new Map(), stages: new Map(), slug: null, streaming: null,
   activity: null, error: null, said: null, saidUntil: 0, plan: null, tick: null, sendQ: [], sending: false, painted: false };
@@ -13,7 +14,15 @@ const B = { view: null, rev: -1, inst: null, els: new Map(), cards: new Map(), s
 
 function boardMount(shell, main) {
   (shell.matches(".lesson") ? shell : $(".lesson", shell))?.classList.add("ws");
-  main.prepend(frag(`<div class="ws-top"><section class="ws-step" aria-live="polite"></section><div class="board" aria-label="The board" data-empty="true"></div></div>`));
+  main.prepend(frag(`<div class="ws-top"><section class="ws-step" aria-live="polite"></section><div class="board" aria-label="The board" data-empty="true">` +
+    `<nav class="shelf" aria-label="Folded blocks" hidden></nav><div class="board-hold" hidden></div></div></div>`));
+  $(".ws-step", main).addEventListener("click", (e) => {
+    if (e.target.closest(".focus-toggle")) return focusMode(!document.body.classList.contains("focus-mode"));
+    const d = e.target.closest(".ws-step-do");
+    if (d) d.classList.toggle("is-open");
+  });
+  $(".shelf", main).addEventListener("click", (e) => { const c = e.target.closest("[data-show]"); if (c) boardOp("show", c.dataset.show); });
+  focusMode(focusSaved(), false);
   $(".dock-inner", main).prepend(frag(html`
     <section class="reply" hidden aria-live="polite" aria-label="The tutor's reply">
       <p class="reply-you"></p>
@@ -41,6 +50,7 @@ function boardMount(shell, main) {
   // the dock covers the bottom of the window: blocks scrolled into view stop above it
   const dock = $(".dock", main);
   new ResizeObserver(() => document.documentElement.style.setProperty("--dock-h", `${dock.offsetHeight}px`)).observe(dock);
+  if (!B.measuring) { B.measuring = true; addEventListener("resize", measureBoard); }
   clearInterval(B.tick);
   B.tick = setInterval(() => { if (page === "topic" && T.tab === "lesson") wsPaint(); else clearInterval(B.tick); }, 1000);
 }
@@ -62,24 +72,111 @@ function boardRender(v) {
   const live = new Set(v.blocks.map((x) => x.id));
   for (const [id, e] of B.els) if (!live.has(id)) { leave(e); B.els.delete(id); }
   const fresh = [];
-  const want = v.blocks.map((x) => {
+  for (const x of v.blocks) {
     let e = B.els.get(x.id);
     if (!e) { e = makeBlock(x); B.els.set(x.id, e); fresh.push(e); } else if (e.rev !== x.rev) updateBlock(e, x);
-    return e.el;
-  });
-  // put them in order, moving only what's out of place (moving an iframe reloads it)
-  let next = null;
-  for (let i = want.length - 1; i >= 0; i--) {
-    if (want[i].parentNode !== grid || nextLive(want[i]) !== next) grid.insertBefore(want[i], next);
-    next = want[i];
   }
-  grid.dataset.empty = String(!v.blocks.length);
+  arrangeBoard(grid, v.arrangement || { template: "compare", rows: [{ cells: v.blocks.map((x) => ({ ids: [x.id], w: 1 })) }], shelf: [] });
   paintReply();
   paintStep();
   paintDock();
-  if (!first && fresh.length) reveal(fresh);
+  const shown = fresh.filter((e) => !e.el.closest(".board-hold"));
+  if (!first && shown.length) reveal(shown);
 }
 const nextLive = (n) => { let s = n.nextElementSibling; while (s && s.classList.contains("is-leaving")) s = s.nextElementSibling; return s; };
+const firstLive = (p) => { const f = p.firstElementChild; return f && f.classList.contains("is-leaving") ? nextLive(f) : f; };
+// Move a node without reloading it where the browser can (an iframe or a scene keeps its state); else a plain insert.
+function place(parent, node, ref) {
+  if (parent.moveBefore && node.isConnected && parent.isConnected) { try { parent.moveBefore(node, ref); return; } catch { /* fall through */ } }
+  parent.insertBefore(node, ref);
+}
+
+// Lay the blocks out as the arrangement says: the shelf's chips, then rows of cells (reused, so only what moved
+// moves), and every folded block parked out of sight with its state intact.
+function arrangeBoard(grid, a) {
+  const shelf = $(".shelf", grid), hold = $(".board-hold", grid);
+  const byId = new Map(B.view.blocks.map((x) => [x.id, x]));
+  let rowEls = $$(":scope > .brow", grid);
+  a.rows.forEach((r, i) => {
+    let row = rowEls[i];
+    if (!row) { row = el("div", "brow"); grid.insertBefore(row, hold); }
+    row.dataset.t = a.template;
+    const cellEls = $$(":scope > .bcell", row);
+    r.cells.forEach((c, j) => {
+      let cell = cellEls[j];
+      if (!cell) { cell = el("div", "bcell"); row.append(cell); }
+      const kinds = c.ids.map((id) => byId.get(id));
+      cell.style.setProperty("--w", c.w || 1);
+      cell.dataset.role = a.rows.length === 1 && r.cells.length > 1 && ["focus-aside"].includes(a.template) ? (j ? "aside" : "focus") : "";
+      // a scene or a picture is as wide as it is (no empty card around it); text and pages take the width they're given
+      cell.dataset.fit = kinds.length === 1 && (kinds[0]?.kind === "scene" || (kinds[0]?.kind === "figure" && kinds[0].show?.kind !== "html")) ? "content" : "";
+      cell.dataset.text = kinds.every((x) => x && (x.kind === "note" || x.kind === "ask")) ? "true" : "";
+      // given the room, a scene or picture may grow into it (a scene's frames are drawn at 2x, so it stays sharp)
+      cell.toggleAttribute("data-zoom", cell.dataset.fit === "content" && (a.template === "focus" || cell.dataset.role === "focus"));
+      let ref = firstLive(cell);
+      for (const id of c.ids) {
+        const node = B.els.get(id)?.el;
+        if (!node) continue;
+        if (node === ref) ref = nextLive(ref); else place(cell, node, ref);
+      }
+    });
+    for (const extra of cellEls.slice(r.cells.length)) { for (const n of [...extra.children]) if (!n.classList.contains("is-leaving")) place(hold, n, null); extra.remove(); }
+  });
+  for (const extra of rowEls.slice(a.rows.length)) {
+    for (const n of $$(".blk", extra)) if (!n.classList.contains("is-leaving")) place(hold, n, null);
+    extra.remove();
+  }
+  for (const id of a.shelf) { const n = B.els.get(id)?.el; if (n && n.parentNode !== hold) place(hold, n, null); }
+  // the shelf: one chip per folded block, oldest first
+  const chips = a.shelf.map((id) => byId.get(id)).filter(Boolean);
+  const key = chips.map((x) => `${x.id}:${x.rev}`).join("|");
+  if (shelf.dataset.key !== key) {
+    shelf.dataset.key = key;
+    shelf.hidden = !chips.length;
+    shelf.innerHTML = chips.length ? `<span class="shelf-label">Folded</span>` + chips.map((x) => {
+      const state = x.kind === "ask" ? (x.status === "answered" ? "answered" : x.status === "pending" ? "waiting" : "skipped") : "";
+      return `<button type="button" class="shelf-chip" data-show="${esc(x.id)}" title="Open it on the board"><span class="kind">${esc(SHELF_KIND[x.kind] || x.kind)}</span>` +
+        `<span class="title">${esc(blockTitle(x))}</span>${state ? `<span class="state">${state}</span>` : ""}</button>`;
+    }).join("") : "";
+  }
+  grid.dataset.empty = String(!B.view.blocks.length);
+  grid.dataset.layout = a.template;
+  measureBoard();
+}
+// Where the board's first row starts on the page: a scene or picture sized to the window stops above the dock.
+function measureBoard() {
+  requestAnimationFrame(() => {
+    const row = $(".board > .brow");
+    if (row) document.documentElement.style.setProperty("--board-top", `${Math.round(row.getBoundingClientRect().top + scrollY)}px`);
+  });
+}
+const SHELF_KIND = { note: "Note", ask: "Questions", scene: "Scene", figure: "Figure" };
+const ASK_NAME = { probe: "Probe", check: "Check", review: "Review", setup: "Setup", approve: "Your call", practice: "Practice" };
+function blockTitle(x) {
+  if (x.kind === "note") return x.title || (String(x.body || "").match(/^\s*#*\s*(.{1,80})/) || [])[1]?.replace(/[*_`$]/g, "") || "Note";
+  if (x.kind === "ask") return x.ask?.title || ASK_NAME[x.ask?.purpose] || "Questions";
+  if (x.kind === "scene") return x.scene?.title || "Scene";
+  return x.show?.title || String(x.show?.path || "").split("/").pop() || "Figure";
+}
+
+// ---------- focus mode: the board and nothing else ----------
+
+const FOCUS_KEY = "teach-focus";
+const focusSaved = () => { try { return localStorage.getItem(FOCUS_KEY) === "1"; } catch { return false; } };
+function focusMode(on, remember = true) {
+  document.body.classList.toggle("focus-mode", on);
+  if (remember) { try { if (on) localStorage.setItem(FOCUS_KEY, "1"); else localStorage.removeItem(FOCUS_KEY); } catch { /* no storage: this page only */ } }
+  for (const b of $$(".focus-toggle")) paintFocusToggle(b);
+  if (remember) toast(on ? "Focus: just the board · Esc or F to leave" : "Focus off", "blue");
+  clampReply();
+  measureBoard();
+}
+function paintFocusToggle(b) {
+  const on = document.body.classList.contains("focus-mode");
+  b.setAttribute("aria-pressed", String(on));
+  b.title = on ? "Leave focus mode (Esc or F)" : "Focus mode: hide everything but the board (F)";
+  b.innerHTML = `${icon(on ? "unfocus" : "focus", "icon icon-sm")}<span>${on ? "Exit" : "Focus"}</span><kbd>${on ? "Esc" : "F"}</kbd>`;
+}
 
 function leave(e) {
   e.el.classList.add("is-leaving");
@@ -155,10 +252,12 @@ function blockActs(e, head) {
   const acts = $(":scope > .blk-acts", head) || head.appendChild(el("span", "blk-acts"));
   const x = e.x;
   acts.innerHTML = x.kind === "ask" && x.status === "pending" ? ""
-    : `<button class="btn btn-quiet btn-icon blk-pin" type="button" aria-pressed="${!!x.pin}" title="${x.pin ? "Pinned: it stays when the next step starts. Click to unpin." : "Pin it: it stays when the next step starts"}">${icon("pin", "icon icon-sm")}</button>` +
+    : `<button class="btn btn-quiet btn-icon blk-fold" type="button" title="Fold it onto the shelf (one click brings it back)" aria-label="Fold">${icon("fold", "icon icon-sm")}</button>` +
+      `<button class="btn btn-quiet btn-icon blk-pin" type="button" aria-pressed="${!!x.pin}" title="${x.pin ? "Pinned: it stays when the next step starts. Click to unpin." : "Pin it: it stays when the next step starts"}">${icon("pin", "icon icon-sm")}</button>` +
       `<button class="btn btn-quiet btn-icon blk-close" type="button" title="Take it off the board" aria-label="Close">${icon("x", "icon icon-sm")}</button>`;
   $(".blk-pin", acts)?.addEventListener("click", () => boardOp(x.pin ? "unpin" : "pin", x.id));
   $(".blk-close", acts)?.addEventListener("click", () => boardOp("dismiss", x.id));
+  $(".blk-fold", acts)?.addEventListener("click", () => boardOp("shelve", x.id));
 }
 
 async function boardOp(op, target) {
@@ -285,20 +384,21 @@ function paintStep() {
     : B.said ? esc(B.said)
     : cur?.detail ? mdi(cur.detail) : "";
   const [state, word] = tutorState();
-  const key = [n, cur?.title, doing, state].join("|");
+  const key = [n, cur?.title, doing, state, plan.map((x) => x.status).join("")].join("|");
   if (box.dataset.key === key) return;
   const fresh = box.dataset.n !== String(n);
   box.dataset.key = key; box.dataset.n = String(n);
   const inner = html`
     <div class="ws-step-head"><span>${plan.length ? `Step ${n || plan.filter((x) => x.status === "done").length} of ${plan.length}` : esc(t.phase || "starting")}</span>${plan.length ? meter(plan.map((x) => x.status)) : ""}</div>
     <h2 class="ws-step-title">${cur ? mdi(cur.title) : esc(t.title)}</h2>
-    ${doing ? `<p class="ws-step-do">${doing}</p>` : ""}
-    <div class="ws-step-wait"><span class="tutor" data-state="${state}"><i></i><span class="word">${word}</span></span></div>`;
+    ${doing ? `<p class="ws-step-do" title="${esc(doing.replace(/<[^>]+>/g, ""))}">${doing}</p>` : ""}
+    <div class="ws-step-wait"><span class="tutor" data-state="${state}"><i></i><span class="word">${word}</span></span></div>
+    <button class="btn btn-sm btn-quiet focus-toggle" type="button"></button>`;
   // a new step crossfades in place; small changes (what it's waiting for) just repaint
   if (fresh && box.firstElementChild) {
     box.classList.add("is-fading");
-    setTimeout(() => { box.innerHTML = inner; box.classList.remove("is-fading"); }, 220);
-  } else box.innerHTML = inner;
+    setTimeout(() => { box.innerHTML = inner; paintFocusToggle($(".focus-toggle", box)); box.classList.remove("is-fading"); }, 220);
+  } else { box.innerHTML = inner; paintFocusToggle($(".focus-toggle", box)); }
 }
 
 // A spoken line: it leads the step card while it plays (Kokoro runs ~2.7 words a second, ~1 s to the first sound).
@@ -387,7 +487,8 @@ function wsStageEvent(ev) {
     st.seq = ev.seq; st.w = ev.w; st.h = ev.h;
     const img = $("img", st.el);
     img.src = `data:image/png;base64,${ev.png}`;
-    img.style.setProperty("--w", `${ev.w}px`);   // never wider than the scene's own size (board.css)
+    img.style.setProperty("--w", `${ev.w}px`);   // its own size, or up to 1.6x that given the room and a 2x frame (board.css)
+    img.style.setProperty("--zmax", String(Math.min(1.6, Number(ev.scale) || 1)));
     img.hidden = false;
     $(".stage-wait", st.el)?.remove();
     // input → frame on screen: from the newest input this frame includes (moves merged in the queue never get their own)

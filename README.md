@@ -19,9 +19,11 @@ log, a knowledge map and a spaced-repetition deck for every topic, all in a loca
 - **One step per message.** You predict before the reveal, then a short check. It moves on only once you get
   the check right; a miss gets a different explanation and another check.
 - **A board, not a chat.** The lesson is a workspace the tutor arranges: its notes, question cards, live scenes
-  and figures stay in view while you work, and it clears them as the lesson moves on (a new step turns the page;
-  pin what should stay). Its reply to your last move sits over the composer until your next one. Close, pin or
-  keep anything yourself; the Transcript tab has the whole lesson in order.
+  and figures. It decides what's in view and how: one thing given the room, a scene with its note beside it, two
+  figures side by side, or its own rows. What it's done with folds onto a shelf of one-line chips, one click from
+  coming back; a new step turns the page (pin what should stay). Its reply to your last move sits by the composer
+  until your next one. Fold, open, pin or close anything yourself; **F** (or the Focus button) hides everything but
+  the board, Esc leaves; the Transcript tab has the whole lesson in order.
 - **Question cards with instant feedback**: choice, multi, typed text with a timer, numbers with units,
   ordering, and hands-on tasks (Done / Stuck).
 - **Review**: every check becomes a card in a Leitner schedule (flashcards, multiple choice, type-it, traps,
@@ -120,8 +122,8 @@ teach help
 - `lib/engine.mjs`: one `claude -p --input-format stream-json` process per topic being taught, with the `teach`
   MCP server (`mcp.mjs`: `ask`, `update`, `plan`, `step`, `cards`, `board`, `show`, `scene`) attached; its stream
   becomes lesson events. An idle tutor closes after 20 minutes; the next message resumes the same session.
-- `lib/board.mjs`: the lesson board and its rules (what replaces what, what leaves by itself), a fold over the
-  lesson's history and the learner's own board actions, so it can always be rebuilt.
+- `lib/board.mjs`: the lesson board and its rules (what replaces what, what leaves by itself, what's in view and how
+  it's arranged), a fold over the lesson's history and the learner's own board actions, so it can always be rebuilt.
 - `lib/transcript.mjs`: Claude Code transcripts → the lesson's history, and finding /teach sessions from other chats.
 - `lib/review.mjs`: the Leitner schedule (20 new items a day). `lib/screen.mjs`, `screen.md`: screen mode.
 - `skill/SKILL.md`: the teaching method the tutor follows. A `skill/local.md` next to it, if you write one, is
