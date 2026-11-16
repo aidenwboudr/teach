@@ -8,7 +8,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { execFile } from "node:child_process";
 import { APP, LEARNING, TOPICS, PROFILE, STATE, WORK, PORT, HOST, SOCKET, HOME, PROJECTS, SYNC, CAPTURE_CMD, OPEN_CMD,
-  LEARNER, Learner, splitCmd, projectDir } from "./lib/paths.mjs";
+  LEARNER, Learner, splitCmd, projectDir, URL_PUBLIC } from "./lib/paths.mjs";
 import * as store from "./lib/store.mjs";
 import * as ops from "./lib/ops.mjs";
 import * as review from "./lib/review.mjs";
@@ -406,13 +406,15 @@ function readBody(req, limit = 40 << 20) {
 
 // Over the socket, a request either came through Tailscale Serve (it carries the tailnet login, which must be
 // TEACH_TS_USER) or from this user's own shell (the `teach` command). Nobody else can open the socket. A dev server
-// on TCP only answers to localhost names.
+// on TCP only answers to localhost names, and to TEACH_URL's host (a published container port, say), so a DNS-rebinding
+// page can't reach it.
+const OWN_HOST = (() => { try { return new URL(URL_PUBLIC).host.toLowerCase(); } catch { return ""; } })();
 function allowed(req) {
   const host = String(req.headers.host || "").toLowerCase();
   const login = req.headers["tailscale-user-login"];
   if (SOCKET) {
     if (login !== undefined && (!TS_USER || login !== TS_USER)) return false;
-  } else if (![`127.0.0.1:${PORT}`, `localhost:${PORT}`, `teach.localhost:${PORT}`].includes(host)) return false;
+  } else if (![`127.0.0.1:${PORT}`, `localhost:${PORT}`, `teach.localhost:${PORT}`, OWN_HOST].filter(Boolean).includes(host)) return false;
   if (req.method !== "GET" && req.method !== "HEAD") {
     if (req.headers["x-teach"] !== "1") return false;                      // blocks cross-site form posts
     // Tailscale Serve hands a socket backend "Host: localhost" and puts the page's real host in X-Forwarded-Host.
