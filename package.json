@@ -50,7 +50,7 @@
   ],
   "scripts": {
     "start": "node server.mjs",
-    "test": "node --test --test-concurrency=1 test/*.test.mjs",
+    "test": "node --test --test-concurrency=1 --test-timeout=180000 test/*.test.mjs",
     "check": "node test/check.mjs"
   }
 }
