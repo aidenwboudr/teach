@@ -9,6 +9,8 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "teach-screen-test-"));
+// Screen mode drives chalk, which runs on Linux (Sway) only; these fakes are shell scripts.
+const LINUX = { skip: process.platform !== "linux" && "screen mode is Linux-only" };
 const APP = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 Object.assign(process.env, { TEACH_DATA: path.join(tmp, "learning"), TEACH_STATE: path.join(tmp, "state"), TEACH_PROJECTS: path.join(tmp, "projects"), TEACH_WORK: path.join(tmp, "school"), TEACH_T3_DB: path.join(tmp, "no-t3.sqlite") });
 delete process.env.TEACH_LEARNER;
@@ -53,7 +55,7 @@ function mcp(env = {}) {
 const log = () => (fs.existsSync(LOG) ? fs.readFileSync(LOG, "utf8") : "");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-test("screen tools only exist in screen mode", async () => {
+test("screen tools only exist in screen mode", LINUX, async () => {
   const on = mcp(), off = mcp({ TEACH_SCREEN: "0" });
   const names = async (s) => (await s.req("tools/list", {}).done).result.tools.map((t) => t.name);
   assert.ok((await names(on)).includes("watch") && (await names(on)).includes("say"));
@@ -61,7 +63,7 @@ test("screen tools only exist in screen mode", async () => {
   on.close(); off.close();
 });
 
-test("say speaks through chalk and returns at once; voice off says so instead", async () => {
+test("say speaks through chalk and returns at once; voice off says so instead", LINUX, async () => {
   fs.rmSync(LOG, { force: true });
   const s = mcp();
   const r = await s.req("tools/call", { name: "say", arguments: { text: "Open the  Layers panel." } }).done;
@@ -77,7 +79,7 @@ test("say speaks through chalk and returns at once; voice off says so instead", 
   s.close();
 });
 
-test("watch returns the change with the screenshot, and sets the Super+/ route", async () => {
+test("watch returns the change with the screenshot, and sets the Super+/ route", LINUX, async () => {
   fs.rmSync(LOG, { force: true });
   const s = mcp();
   const r = await s.req("tools/call", { name: "watch", arguments: { expect: "open Layers", timeout: 30 } }).done;
@@ -88,7 +90,7 @@ test("watch returns the change with the screenshot, and sets the Super+/ route",
   s.close();
 });
 
-test("words he sends during a watch end it at once and stop chalk watching", async () => {
+test("words he sends during a watch end it at once and stop chalk watching", LINUX, async () => {
   fs.rmSync(LOG, { force: true });
   const s = mcp({ WATCH_S: "5" });
   const call = s.req("tools/call", { name: "watch", arguments: {} });
@@ -103,7 +105,7 @@ test("words he sends during a watch end it at once and stop chalk watching", asy
   s.close();
 });
 
-test("a message that arrived between watches is answered by the next watch", async () => {
+test("a message that arrived between watches is answered by the next watch", LINUX, async () => {
   screen.toInbox("gimp-layers", "done");
   screen.toInbox("gimp-layers", "what now?");
   const s = mcp();
@@ -114,7 +116,7 @@ test("a message that arrived between watches is answered by the next watch", asy
   s.close();
 });
 
-test("a cancelled watch stops", async () => {
+test("a cancelled watch stops", LINUX, async () => {
   fs.rmSync(LOG, { force: true });
   const s = mcp({ WATCH_S: "4" });
   const call = s.req("tools/call", { name: "watch", arguments: {} });
@@ -127,7 +129,7 @@ test("a cancelled watch stops", async () => {
   s.close();
 });
 
-test("history: spoken lines read as the tutor's, words from a watch as his", () => {
+test("history: spoken lines read as the tutor's, words from a watch as his", LINUX, () => {
   const dir = path.join(process.env.TEACH_PROJECTS, "p");
   fs.mkdirSync(dir, { recursive: true });
   const file = path.join(dir, "s.jsonl");
@@ -146,7 +148,7 @@ test("history: spoken lines read as the tutor's, words from a watch as his", () 
   assert.equal(items.find((i) => i.t === "note").text, "On your screen");
 });
 
-test("history: answers that reached the tutor mid-turn, the app's record of answers, and sets the lesson moved past", () => {
+test("history: answers that reached the tutor mid-turn, the app's record of answers, and sets the lesson moved past", LINUX, () => {
   const dir = path.join(process.env.TEACH_PROJECTS, "p");
   fs.mkdirSync(dir, { recursive: true });
   const file = path.join(dir, "q.jsonl");
@@ -170,7 +172,7 @@ test("history: answers that reached the tutor mid-turn, the app's record of answ
   assert.ok(!items.some((i) => i.t === "user" && /Answers to question set/.test(i.text)), "his answers don't show as a chat line");
 });
 
-test("scene: a spec for the stage, prediction gates validated and sorted; history keeps it with his predictions", () => {
+test("scene: a spec for the stage, prediction gates validated and sorted; history keeps it with his predictions", LINUX, () => {
   const spec = { title: "RC", objects: [{ id: "ax", axes: [0, 0, 100, 50] }], steps: [{ say: "a" }, { say: "b" }, { say: "c" }] };
   const sc = opsMod.normalizeScene({ scene: spec, predict: [{ step: 2, prompt: "Then?", kind: "number", answer: -20, unit: "dB" }, { step: 1, prompt: "Which?", options: ["up", "down"], answer: 1 }] });
   assert.deepEqual(sc.predict.map((p) => p.step), [1, 2]);
@@ -185,7 +187,7 @@ test("scene: a spec for the stage, prediction gates validated and sorted; histor
   assert.equal(it.predictions[1].result.ok, true);
 });
 
-test("ask -> a panel spec: shuffled options and keys as the app shows them, the box, the plan's progress", () => {
+test("ask -> a panel spec: shuffled options and keys as the app shows them, the box, the plan's progress", LINUX, () => {
   const ops = opsMod;
   const topic = { title: "Neural network from scratch (Python)", plan: [{ id: "1", title: "A neuron", status: "done" }, { id: "2", title: "Loss", status: "current" }, { id: "3", title: "GD", status: "todo" }] };
   const ask = ops.shuffleAsk(ops.normalizeAsk({ purpose: "check", node: "2", box: [10, 20, 300, 18], questions: [
@@ -200,7 +202,7 @@ test("ask -> a panel spec: shuffled options and keys as the app shows them, the 
   assert.ok(!screen.screenable(ops.normalizeAsk({ questions: [{ kind: "order", prompt: "Order these", options: ["a", "b"] }] })));
 });
 
-test("review on screen: each due card as a panel, graded into the review schedule, a toast at the end", async () => {
+test("review on screen: each due card as a panel, graded into the review schedule, a toast at the end", LINUX, async () => {
   const ops = opsMod;
   ops.cards("gimp-layers", { items: [{ type: "card", front: "What does the eye icon do?", back: "Hides the layer" },
     { type: "mcq", prompt: "Which layer is drawn on top?", options: ["The bottom one", "The top one"], answer: 1 }] });
@@ -225,7 +227,7 @@ test("review on screen: each due card as a panel, graded into the review schedul
   s.close();
 });
 
-test("review on screen: a card he grades in the app's Review tab meanwhile comes down from his screen", async () => {
+test("review on screen: a card he grades in the app's Review tab meanwhile comes down from his screen", LINUX, async () => {
   const review = await import("../lib/review.mjs");
   const st0 = JSON.parse(fs.readFileSync(path.join(process.env.TEACH_STATE, "review.json"), "utf8"));
   for (const k of Object.keys(st0.items)) st0.items[k].due = 0;   // both cards due now, graded long ago
@@ -247,7 +249,7 @@ test("review on screen: a card he grades in the app's Review tab meanwhile comes
   s.close();
 });
 
-test("step progress shows as a toast on his screen", async () => {
+test("step progress shows as a toast on his screen", LINUX, async () => {
   const ops = opsMod;
   ops.plan("gimp-layers", { nodes: [{ id: "1", title: "Layers panel" }, { id: "2", title: "Hide a layer" }] });
   fs.rmSync(LOG, { force: true });

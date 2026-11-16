@@ -1,0 +1,10 @@
+.git
+.github
+.fork
+private
+design
+docs
+test
+node_modules
+learning
+*.tgz

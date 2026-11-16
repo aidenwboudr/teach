@@ -1,0 +1,24 @@
+# docker compose up -d, then open http://127.0.0.1:7800. Log Claude Code in once first (see the README):
+#   docker compose run --rm teach claude        (log in, then /exit)
+# or put CLAUDE_CODE_OAUTH_TOKEN (from `claude setup-token`) or ANTHROPIC_API_KEY in a .env file next to this one.
+services:
+  teach:
+    build: .
+    image: teach
+    ports:
+      - "127.0.0.1:7800:7800"        # localhost only: Teach has no login of its own
+    volumes:
+      - ${TEACH_FOLDER:-./learning}:/data   # your learning folder: PROFILE.md and topics/
+      - teach-state:/state
+      - claude-home:/home/node                # Claude Code's login and settings
+    environment:
+      - CLAUDE_CODE_OAUTH_TOKEN
+      - ANTHROPIC_API_KEY
+      - TEACH_LEARNER
+      - TEACH_MODEL
+      - TEACH_ACCESS                   # full: give tutors a shell (inside the container)
+      - TEACH_DEMO                     # 1: add the demo topics to an empty learning folder
+    restart: unless-stopped
+volumes:
+  teach-state:
+  claude-home:

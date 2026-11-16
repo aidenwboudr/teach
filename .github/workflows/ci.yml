@@ -7,10 +7,13 @@ permissions:
   contents: read
 jobs:
   test:
-    runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
         node: ["22", "latest"]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -18,7 +21,35 @@ jobs:
           node-version: ${{ matrix.node }}
       - run: npm run check
       - run: npm test
-      - run: bash -n install.sh && bash -n skill/render-svg.sh
+        env:
+          TEACH_CONFIG: /dev/null
+      - name: shell scripts parse
+        if: runner.os != 'Windows'
+        run: bash -n install.sh && bash -n skill/render-svg.sh
+      - name: render an SVG with the runner's browser
+        shell: bash
+        run: |
+          printf '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="80"><rect width="120" height="80" fill="#c33"/></svg>' > "$RUNNER_TEMP/box.svg"
+          node skill/render-svg.mjs "$RUNNER_TEMP/box.svg"
+          test -s "$RUNNER_TEMP/box.png"
+      - name: the npm package has what it needs and nothing personal
+        if: matrix.node == 'latest'
+        run: node test/pack-check.mjs
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t teach .
+      - name: the image serves the demo topics
+        run: |
+          mkdir -p "$RUNNER_TEMP/learning" && chmod 777 "$RUNNER_TEMP/learning"
+          docker run -d --name teach -p 127.0.0.1:7800:7800 -e TEACH_DEMO=1 -v "$RUNNER_TEMP/learning:/data" teach
+          for i in $(seq 60); do curl -sf http://127.0.0.1:7800/api/topics > topics.json && break; sleep 1; done
+          docker logs teach
+          grep -q bayes-theorem topics.json
+          docker exec teach claude --version
+          docker exec teach sh -c 'printf "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"40\" height=\"40\"/>" > /data/x.svg && node /app/skill/render-svg.mjs /data/x.svg && test -s /data/x.png'
   secrets:
     runs-on: ubuntu-latest
     steps:
