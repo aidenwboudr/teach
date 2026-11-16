@@ -5,7 +5,9 @@ Please keep it that way.
 
 ## Before you open a PR
 
-- `npm test` and `npm run check` pass (CI runs both on Node 22 and the current Node).
+- `npm test` and `npm run check` pass (CI runs both on Linux, macOS and Windows, on Node 22 and the current Node).
+- Anything that differs between Linux, macOS and Windows goes through `lib/platform.mjs` (or takes the platform as
+  an option), with a test that fakes the other platforms: CI runs all three, but you probably only have one.
 - New behavior has a test in `test/` where it can (the tests use throwaway data and fake `claude`/`chalk`
   commands; none needs a model, a network or a screen).
 - Anything environment-specific (a path, a host, a tool only you have) is a `TEACH_*` setting with a sensible
@@ -20,7 +22,8 @@ Please keep it that way.
 ## Reporting bugs
 
 Open an issue with what you did, what you expected and what happened, plus the server log
-(`journalctl --user -u teach` or the terminal running `node server.mjs`) and `~/.local/state/teach/claude.log`.
+(`journalctl --user -u teach` on Linux, `~/.local/state/teach/server.log` on macOS and Windows, or the terminal
+running `teach serve`) and `~/.local/state/teach/claude.log`.
 Check them for anything private first.
 
 By contributing you agree your work is released under the MIT License.

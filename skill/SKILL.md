@@ -61,7 +61,8 @@ The learning folder is `$TEACH_DATA` (default `~/.local/share/teach`; the app's 
   - `deck.json`: review items (the `cards` tool writes it). `sheet.md` is an optional printable review
     sheet that you write, in Markdown with LaTeX.
   - `figures/`: diagrams you draw, as SVG + PNG. `files/`: what the learner attached.
-- `render-svg.sh` (next to this file) turns an SVG into a PNG so you can check it.
+- Checking a drawn SVG: in the app, the teach tool `render` turns it into a PNG and shows it to you; outside the
+  app, `node render-svg.mjs <file>.svg` (next to this file) writes the PNG to Read.
 
 ## The teach tools (inside the app)
 
@@ -73,6 +74,7 @@ The learning folder is `$TEACH_DATA` (default `~/.local/share/teach`; the app's 
 | `step` | Mark a step `current` when you start it, `done` with a result like `2/2` when the learner passes its check, and `shaky` when it needed a re-teach or still wobbles. |
 | `cards` | Add review items: `card`, `mcq`, `recall`, `trap`, `order` (timelines and sequences), `outline` (essay keyword skeletons). |
 | `board` | The lesson board: put notes on it (explanations, worked examples, tables, formulas, a map or checklist the learner builds up), replace a note by its id, pin, remove, and set the `layout` (what's in view and how it's arranged). Returns what's on the board and where. |
+| `render` | Turn an SVG you drew (in the learning folder) into a PNG and see it in the result, to check it before you show it. |
 | `show` | Put a figure (path to PNG/SVG) or a self-contained interactive HTML page (simulator, plot, drill) on the board. |
 | `scene` | Put a live, interactive scene on the board (chalk's scene engine), with predict-then-reveal gates (when the app has it). |
 
@@ -247,8 +249,8 @@ the node you were on.
 timing diagrams, a UI to find. Tutors tend to skip this, so don't.
 
 1. Spawn a subagent to draw it, so the main context stays clean. It writes a clean SVG to the topic's
-   `figures/` and runs `render-svg.sh <file>.svg`.
-2. It then **Reads the PNG to check the picture is correct**: labels, signs, directions, proportions. It
+   `figures/` and renders it with the teach tool `render` (outside the app: `node render-svg.mjs <file>.svg`).
+2. It then **looks at the PNG to check the picture is correct**: labels, signs, directions, proportions. It
    fixes problems and re-renders until the image is right.
 3. Put it on the board with `show`, or inside a note as `![caption](/abs/path.png)`.
 

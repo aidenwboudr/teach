@@ -11,12 +11,15 @@
 //   teach bring [--all]           send /teach sessions that ran on this machine (T3 Code, a focus tool, a terminal) to the app
 //   teach focus on "<goal>" <until-epoch> | off      tell the app a focus block started or ended
 //   teach sync                    ship the learning folder now (TEACH_SYNC=git-pr: PR + squash-merge)
+//   teach serve [--log]           run the server here, with the settings file loaded (--log: into its state folder)
+//   teach setup [--demo] [--no-service] [--no-skill] [--no-command]   install or refresh Teach for this user
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import "./lib/config.mjs";   // first: ~/.config/teach/env fills in the settings lib/paths.mjs reads
 import { URL_PUBLIC, SOCKET, DEFAULT_SOCKET, LEARNING, STATE, BROWSER, splitCmd } from "./lib/paths.mjs";
+import { openArgv, hasDesktop } from "./lib/platform.mjs";
 
 process.removeAllListeners("warning");     // node:sqlite (T3 Code's thread titles) is still "experimental"
 const SOCK = SOCKET || DEFAULT_SOCKET;   // SOCKET is expanded (%t, ~): the env file holds it unexpanded
@@ -50,14 +53,15 @@ function api(p, body) {
 }
 
 // TEACH_BROWSER is a command with {url} (the page) or {app} (the page in app mode: it hands clicked links to the
-// server's TEACH_OPEN_CMD instead of opening them itself), e.g. `chromium --app={app}`. Default: xdg-open.
+// server's TEACH_OPEN_CMD instead of opening them itself), e.g. `chromium --app={app}`. Default: the system's opener
+// (xdg-open, open, or the Windows URL handler).
 function open(p = "/") {
   const url = URL_PUBLIC + p;
   const app = url + (p.includes("?") ? "&" : "?") + "app=desktop";
   console.log(url);
-  if (!process.env.WAYLAND_DISPLAY && !process.env.DISPLAY) return;
-  const argv = BROWSER ? splitCmd(BROWSER).map((a) => a.replaceAll("{url}", url).replaceAll("{app}", app)) : ["xdg-open", url];
-  try { spawn(argv[0], argv.slice(1), { detached: true, stdio: "ignore" }).on("error", () => {}).unref(); } catch { /* no browser: the URL is printed */ }
+  if (!hasDesktop()) return;
+  const argv = BROWSER ? splitCmd(BROWSER).map((a) => a.replaceAll("{url}", url).replaceAll("{app}", app)) : openArgv(url);
+  try { spawn(argv[0], argv.slice(1), { detached: true, stdio: "ignore", windowsHide: true }).on("error", () => {}).unref(); } catch { /* no browser: the URL is printed */ }
 }
 
 const flag = (name) => args.flatMap((a, i) => (a === `--${name}` ? [args[i + 1]] : []));
@@ -128,11 +132,23 @@ try {
       await api("/api/focus", args[0] === "on" ? { goal: args[1], until: Number(args[2]) } : {});
       break;
     case "sync": console.log(JSON.stringify((await api("/api/sync", {})).sync)); break;
+    case "serve": {   // what launchd, the Windows Startup entry and the Docker image run (systemd reads the settings itself)
+      fs.mkdirSync(STATE, { recursive: true });
+      if (args.includes("--log")) {
+        const out = fs.createWriteStream(path.join(STATE, "server.log"), { flags: "a" });
+        const to = (...a) => out.write(a.map((x) => (typeof x === "string" ? x : x instanceof Error ? x.stack : JSON.stringify(x))).join(" ") + "\n");
+        console.log = to; console.error = to; console.warn = to;
+      }
+      fs.writeFileSync(path.join(STATE, "server.pid"), String(process.pid));
+      await import("./server.mjs");
+      break;
+    }
+    case "setup": await (await import("./lib/setup.mjs")).setup(args); break;
     default:
       console.error(fs.readFileSync(new URL(import.meta.url), "utf8").split("\n").filter((l) => l.startsWith("//")).map((l) => l.slice(3)).join("\n"));
       process.exit(cmd === "help" || cmd === "--help" ? 0 : 2);
   }
 } catch (e) {
-  console.error(`teach: ${e.message}${/ECONNREFUSED|ENOENT|fetch failed/.test(String(e.cause?.code || e.message)) ? ` (is the app running? where it runs: systemctl --user status teach; data folder ${LEARNING})` : ""}`);
+  console.error(`teach: ${e.message}${/ECONNREFUSED|ENOENT|fetch failed/.test(String(e.cause?.code || e.message)) ? ` (is the app running? ${process.platform === "linux" ? "systemctl --user status teach, or " : ""}start it with: teach serve; data folder ${LEARNING})` : ""}`);
   process.exit(1);
 }

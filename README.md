@@ -5,11 +5,13 @@ want to learn. It probes what you already know with graded multiple-choice quest
 from there to your goal, and teaches it one reasoning step at a time, checking you after each step. It keeps a
 log, a knowledge map and a spaced-repetition deck for every topic, all in a local web app.
 
-![The lesson board: the current step, a question card with numbered choices, the tutor's reply over the composer, and the plan and knowledge map in the sidebar](docs/lesson.png)
+![A lesson in Teach: open a topic, answer the tutor's check on the board, get its reply and a new note with the worked result, then review a flashcard](docs/demo.gif)
 
-| Home | Review |
-|---|---|
-| ![Home: what do you want to learn, review due, topics in progress](docs/home.png) | ![Review: a flashcard from the deck](docs/review.png) |
+| Home | Lesson | Review |
+|---|---|---|
+| ![Home: what do you want to learn, review due, topics in progress](docs/home.png) | ![The lesson board: the current step, a question card with numbered choices, the tutor's reply over the composer, and the plan and knowledge map in the sidebar](docs/lesson.png) | ![Review: a flashcard from the deck](docs/review.png) |
+
+*Recorded from the demo topics with a scripted stand-in for the tutor (`docs/screenshots.mjs`).*
 
 ## What it does
 
@@ -32,60 +34,86 @@ log, a knowledge map and a spaced-repetition deck for every topic, all in a loca
   one), writing (timed outlines and paragraphs; it edits, never writes for you), skill, curiosity.
 - **Math and pictures**: LaTeX renders with KaTeX; the tutor draws diagrams as SVG and checks them before
   showing them; interactive HTML widgets run sandboxed.
-- **Optional screen mode** (Linux, Sway/wlroots): with [screen-chalk](https://github.com/aidenwboudr/screen-chalk)
-  installed, the tutor talks you through a real app out loud, marks your actual screen and watches you do each
-  step.
+- **Optional screen mode** (Linux with Sway or another wlroots compositor only): with
+  [screen-chalk](https://github.com/aidenwboudr/screen-chalk) installed, the tutor talks you through a real app out
+  loud, marks your actual screen and watches you do each step. Everything else works on Linux, macOS, Windows and
+  in Docker.
 
 Everything is plain files: `PROFILE.md` (what you know, how you like to learn; the tutor keeps it current) and one
 folder per topic (`topic.json`, `log.md`, `deck.json`, `figures/`).
 
 ## Requirements
 
-- **Linux** (macOS is untested; it relies on `/proc` for one cleanup step, and the installer uses systemd).
+- **Linux, macOS or Windows** (or Docker anywhere). Screen mode needs Linux with Sway.
 - **Node.js 22.5 or newer.** No npm dependencies.
 - **Claude Code**, logged in. Each topic runs as a Claude Code session (`claude -p`), so you use your own
   Claude subscription or API key, however your Claude Code is set up (`claude` login, or `ANTHROPIC_API_KEY`).
   Teach never calls the Anthropic API itself and never sees your key.
-- Optional: Chrome or Chromium, for `skill/render-svg.sh` (the tutor checks its diagrams with it).
+- Optional: Chrome, Edge or Chromium, so the tutor can check the diagrams it draws (Edge comes with Windows).
 
 ## Install
 
 ```sh
-npm install -g @anthropic-ai/claude-code   # if you don't have Claude Code yet; then run `claude` once to log in
-git clone https://github.com/aidenwboudr/teach.git ~/teach
-cd ~/teach && ./install.sh --demo
+npm install -g teach-tutor && teach setup --demo
 ```
 
-`install.sh` puts the `teach` command in `~/.local/bin`, links the skill into `~/.claude/skills/teach`, creates
-your learning folder (`~/.local/share/teach`, with `--demo` two example topics), and starts a systemd user service.
-Open **http://127.0.0.1:7800**, or run `teach`.
+Then open **http://127.0.0.1:7800** (or run `teach`). Don't have Claude Code yet? `npm install -g
+@anthropic-ai/claude-code`, then run `claude` once to log in.
 
-No systemd (a container, WSL without it)? `./install.sh --no-service --demo`, then `node server.mjs`.
+`teach setup` creates your learning folder (`~/.local/share/teach`; `--demo` adds two example topics), links the
+skill into `~/.claude/skills/teach`, and keeps the server running in the background:
+
+| | How it runs | Logs |
+|---|---|---|
+| Linux | a systemd user service, `teach.service` | `journalctl --user -u teach -f` |
+| macOS | a launchd agent, `local.teach` (`~/Library/LaunchAgents`) | `~/.local/state/teach/server.log` |
+| Windows | started now, and at sign-in from your Startup folder (`Teach.lnk`, no window) | `~/.local/state/teach/server.log` |
+
+`teach setup --no-service` skips that; run `teach serve` in a terminal when you want it. On Windows, WSL works
+too: inside it, follow the Linux steps (with systemd enabled in WSL, or `--no-service`).
 
 From any Claude Code chat, `/teach <topic>` (or "teach me …") hands the topic to the app.
 
+From a git checkout instead: `git clone https://github.com/aidenwboudr/teach.git && cd teach && ./install.sh --demo`
+(`node cli.mjs setup --demo` on Windows). Same options.
+
+### Docker
+
+```sh
+git clone https://github.com/aidenwboudr/teach.git && cd teach
+docker compose run --rm teach claude      # log Claude Code in once (then /exit); the login stays in a volume
+TEACH_DEMO=1 docker compose up -d         # http://127.0.0.1:7800
+```
+
+Your learning folder is `./learning` next to `compose.yaml` (`TEACH_FOLDER=/path/to/folder` picks another). Instead
+of logging in, you can put `CLAUDE_CODE_OAUTH_TOKEN` (from `claude setup-token`) or `ANTHROPIC_API_KEY` in a `.env`
+file next to `compose.yaml`. The container runs as uid 1000; on Linux, give that user write access to the folder.
+
 ## Settings
 
-Everything is an environment variable. The service reads `~/.config/teach/env` (KEY=VALUE lines, through
-systemd's `EnvironmentFile`), and so does the `teach` command. A server you start by hand with `node server.mjs`
-reads only its own environment, so a dev server never picks up a live setup. `TEACH_CONFIG` points the command
-at another file (`/dev/null` turns it off).
+Everything is an environment variable. `~/.config/teach/env` holds them (KEY=VALUE lines): the Linux service
+reads it through systemd's `EnvironmentFile`, `teach serve` (macOS, Windows, Docker) and the `teach` command load it
+themselves. A server you start by hand with `node server.mjs` reads only its own environment, so a dev server never
+picks up a live setup. `TEACH_CONFIG` points at another file (`/dev/null` turns it off). Restart the server after
+changing it (`systemctl --user restart teach`, `launchctl kickstart -k gui/$(id -u)/local.teach`, or
+`teach setup` again on Windows).
 
 | Variable | Default | What |
 |---|---|---|
+| `TEACH_ACCESS` | `restricted` | What tutors may do; `full` gives them a shell (see Security) |
 | `TEACH_DATA` | `~/.local/share/teach` | Learning folder: `PROFILE.md` and `topics/` |
 | `TEACH_WORK` | the learning folder | Where tutor sessions run (their working directory; they can read files there) |
 | `TEACH_STATE` | `~/.local/state/teach` | Machine-local state: review schedule, answers, uploads, `claude.log` |
 | `TEACH_PORT` / `TEACH_HOST` | `7800` / `127.0.0.1` | Where it listens |
-| `TEACH_URL` | `http://127.0.0.1:$TEACH_PORT` | The address `teach` uses and prints |
+| `TEACH_URL` | `http://127.0.0.1:$TEACH_PORT` | The address `teach` uses and prints (the server answers to its host name too) |
 | `TEACH_SOCKET` | (off) | Listen on this Unix socket (mode 0600) instead of TCP, for a reverse proxy |
 | `TEACH_TS_USER` | (none) | With `TEACH_SOCKET` behind Tailscale Serve: the only tailnet login let through |
 | `TEACH_LEARNER` | `the learner` | What the tutor calls you (a first name reads better) |
 | `TEACH_CLAUDE` | `claude` | The Claude Code binary (or a wrapper) |
 | `TEACH_MODEL` | per topic (Opus) | Force a model for every tutor (e.g. `sonnet`) |
-| `TEACH_SAFE` | off | `1`: tutors get no shell (read, web, and writes only in the learning folder) |
+| `TEACH_CHROME` | found by itself | The browser that renders the tutor's diagrams |
 | `TEACH_SYNC` | off | `git-pr`: when the learning folder is in a GitHub checkout, ship changes as a PR and squash-merge it (needs `gh`) |
-| `TEACH_BROWSER` | `xdg-open {url}` | How `teach open` opens the app, e.g. `chromium --app={app}` |
+| `TEACH_BROWSER` | the system's opener | How `teach open` opens the app, e.g. `chromium --app={app}` |
 | `TEACH_OPEN_CMD` | (none) | With `{app}` windows: a command that opens clicked links in your own browser |
 | `TEACH_CAPTURE_CMD` | (none) | A command that prints your newest photo (JPEG) to stdout; adds a camera button |
 | `TEACH_FOCUS_STATE` | (none) | A focus tool's state file; while it's active, tutors lose the shell |
@@ -94,9 +122,15 @@ at another file (`/dev/null` turns it off).
 
 ## Security: read this
 
-- **By default a tutor has a full shell** (`--permission-mode bypassPermissions`): it runs commands as you,
-  without asking, so it can draw figures, run code and check its work. Set `TEACH_SAFE=1` if you don't want
-  that; tutors then read, search the web, and write only inside the learning folder.
+- **By default a tutor has no shell.** Teach answers Claude Code's permission checks itself: a tutor can read the
+  learning and work folders, search and fetch from the web, use subagents and the teach tools (it checks its
+  diagrams with the `render` tool), and write only inside the learning folder. Everything else is refused, Bash
+  included.
+- **`TEACH_ACCESS=full`** runs tutors with `--permission-mode bypassPermissions`: a full shell that runs commands as
+  you, without asking, so a tutor can run code and check its work. Turn it on only if you're fine with that (in the
+  Docker image, the shell is inside the container).
+- Restricted isn't a sandbox against a determined prompt injection: a tutor can still fetch web pages, so anything
+  in your learning folder could leave through a URL. Keep secrets out of it.
 - The page can show files under the learning and work folders and under `~/Documents`, `~/Downloads`,
   `~/Pictures` and `~/Videos` (never dotfiles), because the tutor links them in lessons. It answers only on
   localhost (or the socket); don't put it on a public address. For remote use, put the socket behind an
@@ -113,6 +147,8 @@ teach list                  topics and where each stands
 teach bring                 bring /teach sessions from other Claude Code chats into the app
 teach update|plan|step|cards <slug> '<json>'   keep a topic current from a chat outside the app
 teach sync                  with TEACH_SYNC=git-pr
+teach serve                 run the server in this terminal (with ~/.config/teach/env loaded)
+teach setup [--demo] [--no-service] [--no-skill]   install or refresh
 teach help
 ```
 
@@ -126,6 +162,7 @@ teach help
   it's arranged), a fold over the lesson's history and the learner's own board actions, so it can always be rebuilt.
 - `lib/transcript.mjs`: Claude Code transcripts → the lesson's history, and finding /teach sessions from other chats.
 - `lib/review.mjs`: the Leitner schedule (20 new items a day). `lib/screen.mjs`, `screen.md`: screen mode.
+- `lib/platform.mjs`: what differs on Linux, macOS and Windows; `lib/setup.mjs`: `teach setup`.
 - `skill/SKILL.md`: the teaching method the tutor follows. A `skill/local.md` next to it, if you write one, is
   read first: put your own additions there (who you are, your courses' conventions) and keep `SKILL.md` as is.
 - `public/`: the page in plain JavaScript (`app.js`, and `board.js` for the lesson board), no build step. KaTeX
@@ -134,11 +171,11 @@ teach help
 ## Develop
 
 ```sh
-npm test                                    # unit tests, throwaway data
+npm test                                    # unit tests, throwaway data (CI: Linux, macOS, Windows)
 npm run check                               # syntax check
 TEACH_DATA=/tmp/teach-dev TEACH_PORT=7801 TEACH_MODEL=haiku node server.mjs   # a dev server on its own data
 node examples/demo/build.mjs                # rebuild the demo topics
-PLAYWRIGHT=…/playwright/index.mjs node docs/screenshots.mjs   # the README screenshots, from the demo data
+PLAYWRIGHT=…/playwright/index.mjs node docs/screenshots.mjs   # the README screenshots and demo.gif, from the demo data
 ```
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).

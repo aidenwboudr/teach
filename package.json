@@ -1,15 +1,56 @@
 {
-  "name": "teach",
+  "name": "teach-tutor",
   "version": "1.0.0",
-  "description": "A one-to-one tutor on top of Claude Code: probes what you know, plans a fact-checked path, teaches one step at a time, and keeps spaced review.",
+  "description": "A one-to-one tutor on top of Claude Code: probes what you know, plans a fact-checked path, teaches one step at a time on a lesson board, and keeps spaced review.",
+  "keywords": [
+    "claude-code",
+    "claude",
+    "tutor",
+    "learning",
+    "education",
+    "spaced-repetition",
+    "mcp",
+    "ai-tutor",
+    "study"
+  ],
+  "homepage": "https://github.com/aidenwboudr/teach#readme",
+  "bugs": "https://github.com/aidenwboudr/teach/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aidenwboudr/teach.git"
+  },
   "license": "MIT",
   "type": "module",
-  "private": true,
-  "bin": { "teach": "cli.mjs" },
-  "engines": { "node": ">=22.5" },
+  "bin": {
+    "teach": "cli.mjs"
+  },
+  "files": [
+    "cli.mjs",
+    "server.mjs",
+    "mcp.mjs",
+    "screen.md",
+    "lib/",
+    "public/",
+    "skill/render-svg.mjs",
+    "skill/render-svg.sh",
+    "skill/SKILL.md",
+    "examples/",
+    "install.sh",
+    "docker/",
+    "Dockerfile",
+    "compose.yaml"
+  ],
+  "engines": {
+    "node": ">=22.5"
+  },
+  "os": [
+    "linux",
+    "darwin",
+    "win32"
+  ],
   "scripts": {
     "start": "node server.mjs",
     "test": "node --test --test-concurrency=1 test/*.test.mjs",
-    "check": "for f in *.mjs lib/*.mjs test/*.mjs public/*.js; do node --check \"$f\" || exit 1; done"
+    "check": "node test/check.mjs"
   }
 }

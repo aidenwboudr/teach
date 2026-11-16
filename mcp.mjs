@@ -8,8 +8,10 @@ import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import * as ops from "./lib/ops.mjs";
-import { getTopic } from "./lib/store.mjs";
-import { Learner } from "./lib/paths.mjs";
+import { getTopic, topicDir } from "./lib/store.mjs";
+import { Learner, LEARNING } from "./lib/paths.mjs";
+import { renderSvg } from "./skill/render-svg.mjs";
+import { inside } from "./lib/platform.mjs";
 import * as review from "./lib/review.mjs";
 import * as board from "./lib/board.mjs";
 import { CHALK, ROUTE_TTL, takeInbox, chalk, speakSeconds, toast, panel, reviewPanel, reviewGood, screenable } from "./lib/screen.mjs";
@@ -129,6 +131,15 @@ const TOOLS = [
     inputSchema: {
       type: "object",
       properties: { title: { type: "string" }, path: { type: "string", description: "Absolute path to .png/.svg/.jpg/.html" }, html: { type: "string" }, name: { type: "string", description: "File name for html (saved to the topic's figures/)" }, height: { type: "number" }, caption: { type: "string" } },
+    },
+  },
+  {
+    name: "render",
+    description: "Turn an SVG you drew into a PNG (headless Chrome) and look at it: the image comes back in the result. Check labels, signs, directions and proportions, fix the SVG and render again until it's right, then put the PNG up with show. " +
+      "The SVG must be in the learning folder (normally the topic's figures/); the PNG is written next to it.",
+    inputSchema: {
+      type: "object", required: ["svg"],
+      properties: { svg: { type: "string", description: "Path of the .svg: absolute, or relative to the topic folder (e.g. figures/rc.svg)" } },
     },
   },
   {
@@ -376,6 +387,13 @@ async function call(name, args, id) {
       board.apply(b, { t: "step", id: "here", step: n.id });   // a no-op when the server turned the page already
       const gone = b.turned?.step === n.id && b.turned.turn === b.turn ? b.turned.removed : [];   // (this turn's page turn only)
       return `Step ${n.id} is current.${gone.length ? ` The board turned the page; these left: ${gone.map((x) => `${x.title}${x.pending ? " (unanswered: it counts as skipped)" : ""}`).join("; ")}.` : ""}\n${board.listing(b)}`;
+    }
+    case "render": {
+      const svg = path.resolve(topicDir(TOPIC), String(args.svg || ""));
+      if (!/\.svg$/i.test(svg) || !fs.existsSync(svg)) throw new Error(`no SVG at ${svg}`);
+      if (!inside(svg, LEARNING)) throw new Error(`render works on SVGs in the learning folder (${LEARNING}); save it in the topic's figures/ first`);
+      const png = await renderSvg(svg);
+      return [{ type: "text", text: `Rendered: ${png}` }, { type: "image", data: fs.readFileSync(png).toString("base64"), mimeType: "image/png" }];
     }
     case "cards": { const r = ops.cards(TOPIC, args); return `Added ${r.added} item(s); the deck has ${r.total}.`; }
     case "show": { ops.normalizeShow(TOPIC, args); return withBoard("On the board."); }
