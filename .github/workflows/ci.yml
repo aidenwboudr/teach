@@ -29,9 +29,14 @@ jobs:
       - name: render an SVG with the runner's browser
         shell: bash
         run: |
-          printf '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="80"><rect width="120" height="80" fill="#c33"/></svg>' > "$RUNNER_TEMP/box.svg"
+          # a figure drawn to the contract (skill/figures.md) renders with no problems (exit 0)
+          printf '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 80"><rect class="red fill" x="20" y="20" width="50" height="30"/><text class="blue" x="76" y="42">$x^2$</text></svg>' > "$RUNNER_TEMP/box.svg"
           node skill/render-svg.mjs "$RUNNER_TEMP/box.svg"
           test -s "$RUNNER_TEMP/box.png"
+          # a white, default-styled one still renders, and is reported (exit 3)
+          printf '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="80"><rect width="120" height="80" fill="white"/><text x="10" y="40" font-family="Arial">plot</text></svg>' > "$RUNNER_TEMP/white.svg"
+          set +e; node skill/render-svg.mjs "$RUNNER_TEMP/white.svg"; code=$?; set -e
+          test "$code" = 3 && test -s "$RUNNER_TEMP/white.png"
       - name: the npm package has what it needs and nothing personal
         if: matrix.node == 'latest'
         run: node test/pack-check.mjs
@@ -49,7 +54,7 @@ jobs:
           docker logs teach
           grep -q bayes-theorem topics.json
           docker exec teach claude --version
-          docker exec teach sh -c 'printf "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"40\" height=\"40\"/>" > /data/x.svg && node /app/skill/render-svg.mjs /data/x.svg && test -s /data/x.png'
+          docker exec teach sh -c 'printf "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 40 40\"><circle class=\"teal\" cx=\"20\" cy=\"20\" r=\"12\"/></svg>" > /data/x.svg && node /app/skill/render-svg.mjs /data/x.svg && test -s /data/x.png'
   secrets:
     runs-on: ubuntu-latest
     steps:
