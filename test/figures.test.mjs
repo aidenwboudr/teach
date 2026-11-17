@@ -61,6 +61,8 @@ test("an interactive page: a light page and its own colours and fonts are refuse
   assert.ok(p.some((x) => /TF\.font/.test(x)));
   const kit = `<!doctype html><style>.row{display:flex;gap:12px}.big{color:var(--red)}</style><label>N <input type=range></label><canvas id=c></canvas><script>g.strokeStyle=TF.color("blue");g.font=TF.font(15)</script>`;
   assert.deepEqual(F.checkHtml(kit), []);
+  // a class name in markup a script writes isn't a colour
+  assert.deepEqual(F.checkHtml(`<script>out.innerHTML = \`<span class="red">x</span>\`; el.classList.add("blue"); el.className = "green";</script>`), []);
   const kitted = F.withFigureKit(kit, "light");
   assert.match(kitted, /^<!doctype html><head><script>[^<]*data-teach-figure[^<]*"light"/);
   assert.match(kitted, /figure\.js"><\/script><!-- teach-figure-kit -->/);
