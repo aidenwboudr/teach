@@ -1,0 +1,37 @@
+<!doctype html>
+<!-- The render page (lib/figure-render.mjs): one SVG figure mounted by the figure kit on a note card's ground, with the
+     app's own stylesheet, fonts and KaTeX, so the PNG the tutor checks is what the board shows. ?theme=dark|light -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="vendor/katex.min.css">
+<link rel="stylesheet" href="figure.css">
+<script src="vendor/katex.min.js"></script>
+<script src="figure.js"></script>
+<style>
+  html, body { margin: 0; }
+  body { background: var(--card); color: var(--ink); }
+  body.ground { background: var(--ground); }
+  #frame { display: inline-block; padding: 16px; }
+</style>
+</head>
+<body>
+<div id="frame"><figure id="fig" class="tf-figure"></figure></div>
+<script>
+  const q = new URLSearchParams(location.search);
+  if (q.get("theme") === "light") document.documentElement.dataset.theme = "light";
+  if (q.get("ground") === "ground") { document.body.classList.add("ground"); document.getElementById("fig").classList.add("on-ground"); }
+  const frames = (n) => new Promise((r) => { const f = () => (--n ? requestAnimationFrame(f) : r()); requestAnimationFrame(f); });
+  window.__render = async (text) => {
+    const fig = document.getElementById("fig");
+    const svg = TF.mount(fig, text);
+    await document.fonts.ready;
+    if (svg) TF.placeMath(svg);
+    await frames(2);
+    const r = document.getElementById("frame").getBoundingClientRect();
+    return { x: r.left, y: r.top, width: Math.ceil(r.width), height: Math.ceil(r.height), problems: svg ? TF.problems(svg) : fig.querySelector("img") ? [] : ["the SVG doesn't parse"] };   // (a figure made before the contract shows as a picture; the static checks speak for it)
+  };
+</script>
+</body>
+</html>

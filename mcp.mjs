@@ -11,7 +11,8 @@ import path from "node:path";
 import * as ops from "./lib/ops.mjs";
 import { getTopic, getRuntime, topicDir } from "./lib/store.mjs";
 import { Learner, LEARNING } from "./lib/paths.mjs";
-import { renderSvg } from "./skill/render-svg.mjs";
+import { renderFigure } from "./lib/figure-render.mjs";
+import { checkFigureFile, checkHtml, checkScene } from "./lib/figures.mjs";
 import { inside } from "./lib/platform.mjs";
 import * as review from "./lib/review.mjs";
 import * as board from "./lib/board.mjs";
@@ -140,7 +141,8 @@ const TOOLS = [
   },
   {
     name: "show",
-    description: "Put a figure or an interactive page on the lesson board as its own block: an image/SVG you drew (path), or a self-contained HTML page (html) for a simulator, interactive plot or drill. HTML runs sandboxed (scripts allowed, no network); keep it self-contained. A picture inside a note works too: ![caption](/abs/path.png) in its body.",
+    description: "Put a figure or an interactive page on the lesson board as its own block: an SVG you drew (path), or a self-contained HTML page (html) for a simulator, interactive plot or drill. HTML runs sandboxed (scripts allowed, no network); keep it self-contained. A picture inside a note works too: ![caption](/abs/path.svg) in its body. " +
+      "Figures follow the figure contract (skill/figures.md): the app themes them (dark ground, chalk's colours, KaTeX), so no background, colour codes or fonts of their own, and no matplotlib/plotly output; a figure that breaks it is refused with the reasons.",
     inputSchema: {
       type: "object",
       properties: { title: { type: "string" }, path: { type: "string", description: "Absolute path to .png/.svg/.jpg/.html" }, html: { type: "string" }, name: { type: "string", description: "File name for html (saved to the topic's figures/)" }, height: { type: "number" }, caption: { type: "string" } },
@@ -148,7 +150,7 @@ const TOOLS = [
   },
   {
     name: "render",
-    description: "Turn an SVG you drew into a PNG (headless Chrome) and look at it: the image comes back in the result. Check labels, signs, directions and proportions, fix the SVG and render again until it's right, then put the PNG up with show. " +
+    description: "Render an SVG you drew the way the board shows it (themed by the app, on a card, math typeset) and look at it: the PNG comes back in the result, with a list of problems (labels past the frame, on each other or on a line; colour codes, fonts, a background). Fix the SVG and render again until there are none and it's right, then show the SVG. " +
       "The SVG must be in the learning folder (normally the topic's figures/); the PNG is written next to it.",
     inputSchema: {
       type: "object", required: ["svg"],
@@ -474,15 +476,28 @@ async function call(name, args, id) {
       const svg = path.resolve(topicDir(TOPIC), String(args.svg || ""));
       if (!/\.svg$/i.test(svg) || !fs.existsSync(svg)) throw new Error(`no SVG at ${svg}`);
       if (!inside(svg, LEARNING)) throw new Error(`render works on SVGs in the learning folder (${LEARNING}); save it in the topic's figures/ first`);
-      const png = await renderSvg(svg);
-      return [{ type: "text", text: `Rendered: ${png}` }, { type: "image", data: fs.readFileSync(png).toString("base64"), mimeType: "image/png" }];
+      const r = await renderFigure(svg);
+      const said = r.problems.length
+        ? `Rendered as the board shows it: ${r.png}\nProblems to fix (show refuses a figure with the first kind, and the learner sees the rest):\n- ${r.problems.join("\n- ")}\nFix them in the SVG and render again (skill/figures.md has the contract).`
+        : `Rendered as the board shows it: ${r.png}\nNo problems found. Still look: labels, signs, directions, proportions.`;
+      return [{ type: "text", text: said }, { type: "image", data: fs.readFileSync(r.png).toString("base64"), mimeType: "image/png" }];
     }
     case "cards": { const r = ops.cards(TOPIC, args); return `Added ${r.added} item(s); the deck has ${r.total}.`; }
     case "document": return documentTool(args);
     case "deliver": { ops.deliver(TOPIC, { kind: args.kind, summary: args.summary, files: args.files }); return "Delivered: its button is ready. Reply with one short line."; }
-    case "show": { ops.normalizeShow(TOPIC, args); return withBoard("On the board."); }
+    case "show": {
+      // a figure has to look like part of the app (skill/figures.md): no white box, colour codes, fonts, plot defaults
+      const file = args.path && path.resolve(String(args.path));
+      const problems = args.html ? checkHtml(String(args.html))
+        : file && fs.existsSync(file) && (!/\.png$/i.test(file) || file.split(path.sep).includes("figures")) ? checkFigureFile(file) : [];
+      if (problems.length) throw new Error(`Not shown: this figure wouldn't match the app's theme.\n- ${problems.join("\n- ")}\nFix it to the figure contract (skill/figures.md next to SKILL.md), check it with render, then show it again.`);
+      ops.normalizeShow(TOPIC, args);
+      return withBoard("On the board.");
+    }
     case "scene": {
       const sc = ops.normalizeScene(args);   // validate only; the app reads the call from the stream and puts it up
+      const bad = checkScene(sc.scene);
+      if (bad.length) throw new Error(`Not shown: fix the scene first.\n- ${bad.join("\n- ")}`);
       return withBoard(`On the board in Teach${sc.predict.length ? `. Step ${sc.predict[0].step + 1} waits for their prediction: end your turn now; it arrives as your next message` : ""}.` +
         (live() ? " Tell them out loud it's in the Teach window." : ""));
     }
