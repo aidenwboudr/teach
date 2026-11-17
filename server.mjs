@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Teach: the interface for the /teach skill. A small server (Node built-ins only) that keeps the topic files,
-// runs one Claude Code tutor process per topic being taught (lib/engine.mjs), and serves the page. It listens on
+// runs one tutor process per topic being taught (lib/engine.mjs; Claude Code, or another AI's CLI: lib/providers/), and serves the page. It listens on
 // localhost, or (TEACH_SOCKET) on a Unix socket only its own user can open, for a proxy such as Tailscale Serve
 // to publish; Tailscale stamps each request with the user's login, which TEACH_TS_USER must match.
 import http from "node:http";
@@ -13,6 +13,7 @@ import * as store from "./lib/store.mjs";
 import * as ops from "./lib/ops.mjs";
 import * as review from "./lib/review.mjs";
 import { Engine, focusBlock } from "./lib/engine.mjs";
+import { PROVIDER } from "./lib/providers/index.mjs";
 import { history, findSessions, pendingAsk, digest, sessionFile } from "./lib/transcript.mjs";
 import { sync, lastSync } from "./lib/sync.mjs";
 import * as screen from "./lib/screen.mjs";
@@ -57,6 +58,7 @@ const engine = new Engine(emit);
 // Is the lesson on the learner's screen right now: their "On my screen" switch, or a stretch the tutor started (`screen`).
 const onScreenNow = (t) => screen.isLive(t, t && store.getRuntime(t.slug));
 engine.isLive = (slug) => onScreenNow(store.getTopic(slug));
+const TUTOR = { provider: PROVIDER.id, label: PROVIDER.label, models: PROVIDER.can.models, effort: PROVIDER.can.effort };   // what the page says about who teaches
 const closeAfter = new Set();
 const afterRestart = new Map();   // slug → note to start the next process with (screen mode switched)
 const afterTurn = new Map();      // slug → note for a new turn once this one ends (the mode changed mid-turn)
@@ -351,6 +353,7 @@ setInterval(() => scheduleSync("periodic", 1000), 3 * 3600e3).unref();
 // A session brought in from another project folder (a git worktree, say) records that folder as `project`; one
 // that ran on another machine has its copy, from `teach bring`, in this machine's WORK folder's project.
 const sessionPath = (s) => {
+  if (s.transcript) return s.transcript;   // a Codex or Gemini session: the transcript Teach keeps (lib/providers/turns.mjs)
   const p = s.project ? path.join(PROJECTS, s.project, `${s.id}.jsonl`) : sessionFile({ ...s, cwd: s.cwd || WORK });
   return fs.existsSync(p) ? p : path.join(projectDir(WORK), `${s.id}.jsonl`);
 };
@@ -407,7 +410,7 @@ function kickoff(t, how, extra = {}) {
     return base + ` The earlier conversation can't be resumed directly; it is in ${d}.`;
   }
   if (how.mode === "new") {
-    return `[Teach app] continue\nContinue this topic in a fresh session (the last one ${how.reason === "old" ? "is more than a day old" : "can't be resumed"}).` +
+    return `[Teach app] continue\nContinue this topic in a fresh session (the last one ${how.reason === "old" ? "is more than a day old" : how.reason === "provider" ? `ran on another AI service; this one is ${PROVIDER.label}` : "can't be resumed"}).` +
       ` Read ${dir}/topic.json, ${dir}/log.md and ${PROFILE} first, then follow the skill's continuation: one line on where we are, a short review of the shakiest recent steps, then the next step.`;
   }
   return null;
@@ -560,7 +563,7 @@ async function route(req, res) {
     const list = found().map((g) => ({ key: g.key, title: g.title, mtime: g.mtime, live: g.live, summary: g.summary,
       sessions: g.sessions.map((s) => ({ via: s.via, thread: s.threadTitle, mtime: s.mtime })) }));
     return json(res, 200, { topics, found: list, due, sync: SYNC === "git-pr" ? lastSync() : null, focus: focusBlock() ? { goal: focusBlock().goal } : null,
-      features: { sync: SYNC === "git-pr", capture: !!CAPTURE_CMD, open: !!OPEN_CMD, screen: screen.installed() } });
+      features: { sync: SYNC === "git-pr", capture: !!CAPTURE_CMD, open: !!OPEN_CMD, screen: screen.installed() && PROVIDER.can.screen }, tutor: TUTOR });
   }
 
   if (m === "POST" && p === "/api/upload") {
@@ -714,7 +717,7 @@ async function route(req, res) {
       return json(res, 200, { topic: t, status: { ...engine.status(slug), streaming: undefined }, link: { ...screen.link }, live: store.getRuntime(slug).live || null, deck: { byType, groups: deck.groups, total: deck.items.length },
         files: store.topicFiles(slug), hasLog: fs.existsSync(path.join(store.topicDir(slug), "log.md")), hasSheet: fs.existsSync(path.join(store.topicDir(slug), "sheet.md")),
         due: review.counts().by[slug] || 0, next: engine.isAlive(slug) ? null : engine.plan(slug), focus: !!focusBlock(),
-        features: { sync: SYNC === "git-pr", capture: !!CAPTURE_CMD, open: !!OPEN_CMD, screen: screen.installed() } });
+        features: { sync: SYNC === "git-pr", capture: !!CAPTURE_CMD, open: !!OPEN_CMD, screen: screen.installed() && PROVIDER.can.screen }, tutor: TUTOR });
     }
     if (m === "GET" && action === "history") return json(res, 200, { items: topicHistory(t) });
     if (m === "GET" && action === "board") return json(res, 200, { board: boardView(slug) });
@@ -799,14 +802,14 @@ async function route(req, res) {
           if (["opus", "sonnet", "fable"].includes(b.model)) x.settings.model = b.model;
           if (["medium", "high", "xhigh"].includes(b.effort)) x.settings.effort = b.effort;
           if (typeof b.review === "boolean") x.settings.review = b.review;
-          if (typeof b.screen === "boolean") x.settings.screen = b.screen;
+          if (typeof b.screen === "boolean" && (PROVIDER.can.screen || !b.screen)) x.settings.screen = b.screen;   // (screen mode: Claude Code only)
           if (typeof b.voice === "boolean") x.settings.voice = b.voice;
           if (typeof b.autoScreen === "boolean") x.settings.autoScreen = b.autoScreen;
           if (typeof b.title === "string" && b.title.trim()) x.title = b.title.trim().slice(0, 90);
           if (typeof b.deadline === "string" && (!b.deadline || /^\d{4}-\d{2}-\d{2}$/.test(b.deadline))) x.deadline = b.deadline;
           if (store.STATUSES.includes(b.status)) x.status = b.status;
         });
-        if (typeof b.screen === "boolean" && b.screen !== wasScreen) {
+        if (typeof b.screen === "boolean" && b.screen !== wasScreen && !!store.getTopic(slug).settings.screen === b.screen) {   // (refused on a provider without screen mode)
           const wasLive = !!store.getRuntime(slug).live;
           if (wasLive) store.mutateRuntime(slug, (r) => { delete r.live; });   // their switch takes over the tutor's stretch
           if (!b.screen) {
