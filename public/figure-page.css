@@ -1,0 +1,31 @@
+/* An interactive figure's base look (the server puts this, the app's tokens and fonts, KaTeX and figure.js into every
+   HTML page the tutor shows): the page sits flat on the board's card in chalk's language, so a widget only lays
+   itself out. Sliders are chalk's (a yellow track and knob, the value in mono beside it), buttons are the app's. */
+html { background: var(--card); }   /* the block's own card (a transparent page in a sandbox can get an opaque backdrop) */
+html, body { margin: 0; }
+body { color: var(--ink); font: 400 15px/1.5 var(--font-serif); padding: 4px 2px; -webkit-font-smoothing: antialiased; }
+h1, h2, h3, h4 { font: 600 16px/1.3 var(--font-ui); margin: 0 0 8px; color: var(--ink); }
+p { margin: 0 0 8px; }
+small, .dim, .hint { color: var(--ink-2); }
+label { color: var(--stage-dim); font: 400 14px/1.4 var(--font-ui); }
+b, strong { font-weight: 600; }
+canvas, svg { max-width: 100%; background: transparent; }
+code, kbd, .mono, output, .readout { font-family: var(--font-mono); font-size: 13px; }
+output, .readout { color: var(--yellow); font-weight: 600; }
+table { border-collapse: collapse; font-size: 14px; }
+th, td { padding: 4px 10px; border-bottom: 1px solid var(--edge); text-align: left; }
+th { color: var(--ink-2); font: 500 12.5px var(--font-ui); }
+button { font: 600 13px/1 var(--font-ui); color: var(--ink); background: var(--card-2); border: 1px solid var(--edge-strong);
+  border-radius: 999px; padding: 7px 14px; cursor: pointer; transition: background var(--xfade), border-color var(--xfade); }
+button:hover { border-color: var(--blue); }
+button.primary, button[data-primary] { background: var(--blue); border-color: var(--blue); color: var(--accent-ink); }
+input[type=number], input[type=text], select, textarea { font: 14px var(--font-mono); color: var(--ink); background: var(--ground);
+  border: 1px solid var(--edge-strong); border-radius: 6px; padding: 5px 8px; }
+input[type=range] { -webkit-appearance: none; appearance: none; height: 18px; background: transparent; vertical-align: middle; accent-color: var(--yellow); }
+input[type=range]::-webkit-slider-runnable-track { height: 4px; border-radius: 2px;
+  background: linear-gradient(var(--yellow), var(--yellow)) 0 / var(--fill, 50%) 100% no-repeat, var(--edge-strong); }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; margin-top: -6px; border-radius: 50%; background: var(--yellow); border: 0; }
+input[type=range]::-moz-range-track { height: 4px; border-radius: 2px; background: var(--edge-strong); }
+input[type=range]::-moz-range-progress { height: 4px; border-radius: 2px; background: var(--yellow); }
+input[type=range]::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: var(--yellow); border: 0; }
+input[type=checkbox], input[type=radio] { accent-color: var(--blue); }

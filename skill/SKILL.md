@@ -61,9 +61,10 @@ The learning folder is `$TEACH_DATA` (default `~/.local/share/teach`; the app's 
   - `deck.json`: review items (the `cards` tool writes it, only when the learner asks for flashcards).
   - `out/`: what the end-of-session actions made (a note sheet, a worksheet and its key, a reference card,
     lesson notes), as Markdown + PDF. An older topic may have a `sheet.md`.
-  - `figures/`: diagrams you draw, as SVG + PNG. `files/`: what the learner attached.
-- Checking a drawn SVG: in the app, the teach tool `render` turns it into a PNG and shows it to you; outside the
-  app, `node render-svg.mjs <file>.svg` (next to this file) writes the PNG to Read.
+  - `figures/`: diagrams you draw, as SVG (to the contract in `figures.md`, next to this file). `files/`: what
+    the learner attached.
+- Checking a drawn SVG: in the app, the teach tool `render` shows it to you as the board will, with any problems
+  listed; outside the app, `node render-svg.mjs <file>.svg` (next to this file) writes the PNG to Read and prints them.
 
 ## The teach tools (inside the app)
 
@@ -271,14 +272,22 @@ the node you were on.
 **Visuals.** Draw whenever a picture would carry a step: fields, waveforms, circuits, geometry, truth tables,
 timing diagrams, a UI to find. Tutors tend to skip this, so don't.
 
-1. Spawn a subagent to draw it, so the main context stays clean. It writes a clean SVG to the topic's
-   `figures/` and renders it with the teach tool `render` (outside the app: `node render-svg.mjs <file>.svg`).
-2. It then **looks at the PNG to check the picture is correct**: labels, signs, directions, proportions. It
-   fixes problems and re-renders until the image is right.
-3. Put it on the board with `show`, or inside a note as `![caption](/abs/path.png)`.
+Every figure has to look like part of the app, in chalk's visual language, never a white box with a plotting
+library's defaults. **`figures.md` next to this file is the contract** (read it before drawing): the app themes
+figures itself, so a figure brings only its geometry and class names, and `show`/`render` refuse one with its own
+background, colour codes, fonts or matplotlib/plotly output.
 
-For something they should play with (a slider-driven RC curve, a K-map they fill in), `show` a
-self-contained HTML page.
+1. Something that moves or that they should poke: a **scene** (the `scene` tool) when the app has it.
+2. A still diagram: spawn a subagent to draw it (give it the path of `figures.md`), so the main context stays
+   clean. It writes an SVG to the topic's `figures/` and renders it with the teach tool `render` (outside the app:
+   `node render-svg.mjs <file>.svg`), which shows the PNG **as the board will** and lists layout problems.
+3. It **looks at the PNG to check the picture is correct** (labels, signs, directions, proportions), fixes every
+   problem `render` lists, and re-renders until there are none and the image is right.
+4. Put it on the board with `show` (the SVG), or inside a note as `![caption](/abs/path.svg)`.
+
+For a small tool they should play with that a scene can't do (a K-map they fill in, a drill), `show` a
+self-contained HTML page that leaves its look to the app's kit (`figures.md`). Every note card also has a
+"Visualize it" button: the learner can ask for a picture of a note themselves, and you hear when they do.
 
 **Notation.** In the app, write math as LaTeX: `$…$` inline, `$$…$$` display. Keep one notation for the
 whole topic.

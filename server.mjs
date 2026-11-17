@@ -21,6 +21,9 @@ import * as stage from "./lib/stage.mjs";
 import * as board from "./lib/board.mjs";
 import * as actions from "./lib/actions.mjs";
 import { command } from "./lib/platform.mjs";
+import { withFigureKit, checkHtml } from "./lib/figures.mjs";
+import * as visualize from "./lib/visualize.mjs";
+import { renderFigure } from "./lib/figure-render.mjs";
 
 process.removeAllListeners("warning");            // node:sqlite's ExperimentalWarning, once per process
 
@@ -251,12 +254,44 @@ function boardOf(slug) {
   }
   return b;
 }
-const boardView = (slug) => ({ ...board.view(boardOf(slug)), inst: boardInst });
+// A note's own visual ("Visualize it", kept in topic.json `visuals`) and the job making one ride on its block; its rev
+// changes with them, so the page repaints just that card.
+function boardView(slug) {
+  const v = { ...board.view(boardOf(slug)), inst: boardInst };
+  const t = store.getTopic(slug), jobs = visualize.jobsFor(slug);
+  v.blocks = v.blocks.map((x) => {
+    if (x.kind !== "note") return x;
+    const saved = visualize.visualOf(t, x.id), job = Object.hasOwn(jobs, x.id) ? jobs[x.id] : null;
+    // a note id the tutor reused for a different note (another title, other words) doesn't inherit the old picture;
+    // the same note edited keeps it, marked as drawn for an earlier version
+    const changed = saved && saved.noteHash !== visualize.hashBody(x.body);
+    const visual = saved && !(changed && (saved.noteTitle || "") !== (x.title || "")) ? visualSummary(slug, x.id, saved, changed) : null;
+    if (!visual && !job) return x;
+    return { ...x, visual, vjob: job, rev: `${x.rev}:${visual ? `${visual.at}:${visual.hidden ? 1 : 0}:${visual.stale ? 1 : 0}` : ""}:${job ? `${job.state}:${job.sub}` : ""}` };
+  });
+  return v;
+}
+const visualStage = (slug, noteId) => `vis:${slug}:${noteId}`;
+const visualSummary = (slug, id, v, stale) => ({ kind: v.kind, title: v.title, at: v.at, hidden: !!v.hidden, path: v.path, stage: visualStage(slug, id), stale: !!stale });
+const boardNow = (slug) => {
+  if (boardTimers.has(slug)) return;
+  boardTimers.set(slug, setTimeout(() => { boardTimers.delete(slug); broadcast(slug, { t: "board", board: boardView(slug) }); }, 40));
+};
+// A visual changed (made, failed, cancelled, hidden): the page repaints the card; a new one is the tutor's to know.
+visualize.listen((slug, noteId, made) => {
+  if (made) {
+    stage.close(visualStage(slug, noteId));   // (another view replaces the scene that was up)
+    const lines = boardNotes.get(slug) || [];
+    boardNotes.set(slug, [...lines, `${Learner} pressed "Visualize it" on note \`${noteId}\`: it now shows a ${made.kind === "scene" ? "live scene" : "figure"} under its text${made.title ? ` ("${made.title}")` : ""}. You don't need to describe it; refer to it if it helps.`]);
+  }
+  boardNow(slug);
+});
 const boardTimers = new Map();
 function boardApply(slug, item) {
   const r = board.apply(boardOf(slug), { at: store.now(), ...item });
   for (const x of r.removed) {
     if (x.kind === "scene") stage.close(x.id);
+    if (x.kind === "note") stage.close(visualStage(slug, x.id));
     if (x.kind === "ask" && x.status === "pending") {
       offScreen(x.id);
       store.mutateRuntime(slug, (rt) => { rt.dropped = { ...(rt.dropped || {}), [x.id]: store.now() }; });
@@ -653,9 +688,17 @@ function readableFile(p) {
 function serveFile(res, file, extraHeaders = {}) {
   const type = MIME[path.extname(file).toLowerCase()] || "application/octet-stream";
   const st = fs.statSync(file);
-  res.writeHead(200, { "Content-Type": type, "Content-Length": st.size, "Cache-Control": "no-cache", ...extraHeaders });
+  // fonts: interactive figures run in a sandbox (an opaque origin), and a font from there is a CORS request
+  const cors = /\.(woff2?|ttf|otf)$/i.test(file) ? { "Access-Control-Allow-Origin": "*" } : {};
+  res.writeHead(200, { "Content-Type": type, "Content-Length": st.size, "Cache-Control": "no-cache", ...cors, ...extraHeaders });
   fs.createReadStream(file).pipe(res);
 }
+
+// ---------- the figure theme, for interactive figures ----------
+
+// The app's fonts and tokens (style.css up to its base rules), for pages that aren't the app: an interactive figure
+// gets these and nothing of the app's own layout.
+const tokensCss = () => { const css = fs.readFileSync(path.join(PUBLIC, "style.css"), "utf8"); const i = css.search(/\/\*[─\s]*3\. Base/); return i > 0 ? css.slice(0, i) : css; };
 
 const ok = (res, extra = {}) => json(res, 200, { ok: true, ...extra });
 
@@ -665,6 +708,7 @@ async function route(req, res) {
   let mm;
 
   if (m === "GET" && (p === "/" || /^\/(t\/[a-z0-9-]+(\/(review|notes|files|transcript))?|review|profile|new)\/?$/.test(p))) return serveFile(res, path.join(PUBLIC, "index.html"));
+  if (m === "GET" && p === "/style-tokens.css") { res.writeHead(200, { "Content-Type": "text/css; charset=utf-8", "Cache-Control": "no-cache" }); return res.end(tokensCss()); }
   if (m === "GET" && !p.startsWith("/api/")) {
     const f = path.join(PUBLIC, path.normalize(p).replace(/^(\.\.[/\\])+/, ""));
     if (f.startsWith(PUBLIC) && fs.existsSync(f) && fs.statSync(f).isFile()) return serveFile(res, f);
@@ -761,9 +805,17 @@ async function route(req, res) {
   if (m === "GET" && p === "/api/file") {
     const f = readableFile(url.searchParams.get("path"));
     if (!f || !fs.statSync(f).isFile()) return json(res, 404, { error: "not available" });
-    // Widgets the tutor wrote run sandboxed (opaque origin, no network).
-    const extra = /\.html?$/i.test(f) ? { "Content-Security-Policy": "sandbox allow-scripts allow-forms; default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval' data:; style-src 'unsafe-inline' data:; img-src data: blob:; font-src data:" } : {};
-    return serveFile(res, f, extra);
+    // Widgets the tutor wrote run sandboxed (opaque origin, no network but the app's own theme kit, fonts and KaTeX).
+    if (/\.html?$/i.test(f)) {
+      const csp = "sandbox allow-scripts allow-forms; default-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' data:; style-src 'self' 'unsafe-inline' data:; img-src 'self' data: blob:; font-src 'self' data:";
+      // the kit goes into a page that follows the contract (skill/figures.md); one made before it keeps its own look
+      const page = fs.readFileSync(f, "utf8");
+      const body = Buffer.from(url.searchParams.has("fig") && !checkHtml(page).length ? withFigureKit(page, url.searchParams.get("theme")) : page);
+      res.writeHead(200, { "Content-Type": MIME[".html"], "Content-Length": body.length, "Cache-Control": "no-cache", "Content-Security-Policy": csp });
+      return res.end(body);
+    }
+    // an SVG opened on its own (the tab a figure's link opens) can't run anything
+    return serveFile(res, f, /\.svg$/i.test(f) ? { "Content-Security-Policy": "sandbox; default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:" } : {});
   }
 
   if (m === "POST" && p === "/api/capture") {
@@ -991,11 +1043,42 @@ async function route(req, res) {
         if (!lines.includes(note)) boardNotes.set(slug, [...lines, note]);
         return ok(res, { id: op.id });
       }
+      case "visualize": {
+        // "Visualize it" on a note: start (or another view), cancel, hide, show
+        const noteId = String(b.note || "");
+        const note = boardOf(slug).blocks.find((x) => x.kind === "note" && x.id === noteId);
+        if (!visualize.noteIdOk(noteId)) return json(res, 400, { error: "note is a note's id" });
+        if (b.op === "cancel") { visualize.cancel(slug, noteId); return ok(res); }
+        if (b.op === "hide" || b.op === "show") {
+          if (!visualize.visualOf(t, noteId)) return json(res, 404, { error: "that note has no visual" });
+          store.mutateTopic(slug, (x) => { x.visuals[noteId].hidden = b.op === "hide"; });
+          if (b.op === "hide") stage.close(visualStage(slug, noteId));
+          boardNow(slug);
+          return ok(res);
+        }
+        if (b.op !== "start") return json(res, 400, { error: "op must be start, cancel, hide or show" });
+        if (!note) return json(res, 404, { error: "that note isn't on the board" });
+        const job = visualize.start(slug, { id: note.id, title: note.title || "", body: note.body || "" }, {
+          topic: t, provider: PROVIDER.id, model: ["opus", "sonnet", "fable"].includes(t.settings.model) ? t.settings.model : "opus", effort: process.env.TEACH_VISUALIZE_EFFORT || "medium",
+          stage: stage.available() ? { available: true, dir: stage.dir(), storyboard: stage.storyboard } : null,
+          render: (file) => renderFigure(file),
+        });
+        return ok(res, { job });
+      }
       case "stage": {
         const id = String(b.id || "");
         if (b.op === "predict") {
           try { return ok(res, { result: predictOnStage(slug, id, Math.trunc(Number(b.step)), b.answer || {}) }); }
           catch (e) { return json(res, e.code || 400, { error: e.message }); }
+        }
+        if (b.op === "open" && id.startsWith("vis:")) {   // a note's own visual: vis:<topic>:<note id>
+          const [, of, ...rest] = id.split(":");
+          const v = of === slug ? visualize.visualOf(t, rest.join(":")) : null;
+          if (!v || v.kind !== "scene") return json(res, 404, { error: "that note has no scene" });
+          if (!stage.available()) return json(res, 503, { error: "chalk's scene host isn't installed on this machine" });
+          stage.show(slug, id, v.scene, []);
+          stage.input(id, { op: "refresh" });
+          return ok(res);
         }
         if (b.op === "open") {
           const item = boardOf(slug).blocks.find((x) => x.kind === "scene" && x.id === id);

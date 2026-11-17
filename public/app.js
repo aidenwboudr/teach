@@ -63,6 +63,8 @@ marked.use({
       let src = href || "";
       if (src.startsWith("file://")) src = decodeURIComponent(src.slice(7));
       const url = src.startsWith("/") ? fileURL(src) : src;
+      // a drawn SVG goes into the page itself (the figure kit themes it); app.js's observer mounts it
+      if (/\.svg$/i.test(src.split("?")[0]) && src.startsWith("/")) return `<figure class="tf-figure" data-svg="${esc(url)}">${text ? `<figcaption>${esc(text)}</figcaption>` : ""}</figure>`;
       return `<figure><img src="${esc(url)}" alt="${esc(text || "")}" loading="lazy">${text ? `<figcaption>${esc(text)}</figcaption>` : ""}</figure>`;
     },
     link({ href, title, tokens }) {
@@ -71,7 +73,7 @@ marked.use({
     },
     code({ text, lang }) {
       if ((lang || "").trim() === "svg" || /^\s*<svg[\s>]/.test(text)) {
-        return `<figure><img alt="drawing" src="data:image/svg+xml;charset=utf-8,${encodeURIComponent(text)}"></figure>`;
+        return `<figure class="tf-figure" data-svg-src="${esc(text)}"></figure>`;
       }
       return false;
     },
@@ -102,6 +104,16 @@ function md(src, { inline = false, allowHTML = false } = {}) {
   });
 }
 const mdi = (s) => md(s, { inline: true });
+
+// SVG figures (a figure block, a picture in a note): mounted into the page by the figure kit (figure.js), wherever
+// they land, so they take the app's theme instead of sitting there as a picture with its own.
+const svgText = (url) => fetch(url, { cache: "no-cache" }).then((r) => (r.ok ? r.text() : Promise.reject(new Error(`HTTP ${r.status}`))));
+let tfQueued = false;
+new MutationObserver(() => {
+  if (tfQueued) return;
+  tfQueued = true;
+  queueMicrotask(() => { tfQueued = false; TF.upgrade(document, svgText); });
+}).observe(document.body, { childList: true, subtree: true });
 
 // ---------- shell: theme, nav, due badge ----------
 

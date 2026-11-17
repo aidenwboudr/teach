@@ -37,7 +37,7 @@ require("readline").createInterface({ input: process.stdin }).on("line", (line) 
   const id = "msg" + ++n, content = [{ type: "text", text: "Reply " + n + "." }];
   const tool = (name, input) => content.push({ type: "tool_use", id: "toolu_" + name + n, name: "mcp__teach__" + name, input });
   if (text.includes("NOTE")) tool("board", { put: [{ id: "idea", title: "The idea", body: "A pull-down holds the pin **low**." }] });
-  const spec = (title) => ({ title, size: [400, 300], objects: [{ type: "text", text: title, at: [10, 10] }] });
+  const spec = (title) => ({ title, size: [400, 300], objects: [{ type: "text", text: title, at: [10, 30] }] });
   if (text.includes("SCENE")) { tool("scene", { scene: spec("RC") }); global.scene = content.at(-1).id; }
   if (text.includes("MORPH")) { tool("scene", { scene: spec("RC " + n), replaces: global.scene }); global.scene = content.at(-1).id; }
   if (text.includes("TEMP")) tool("board", { put: [{ id: "temp", body: "for now" }] });
