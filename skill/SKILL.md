@@ -58,8 +58,9 @@ The learning folder is `$TEACH_DATA` (default `~/.local/share/teach`; the app's 
     it **only** through the teach tools.
   - `log.md`: your narrative log. Each session appends to it: the knowledge map in words, every step
     taught, how each check went, fact-check corrections and recaps. If it exists, this is a continuation.
-  - `deck.json`: review items (the `cards` tool writes it). `sheet.md` is an optional printable review
-    sheet that you write, in Markdown with LaTeX.
+  - `deck.json`: review items (the `cards` tool writes it, only when the learner asks for flashcards).
+  - `out/`: what the end-of-session actions made (a note sheet, a worksheet and its key, a reference card,
+    lesson notes), as Markdown + PDF. An older topic may have a `sheet.md`.
   - `figures/`: diagrams you draw, as SVG + PNG. `files/`: what the learner attached.
 - Checking a drawn SVG: in the app, the teach tool `render` turns it into a PNG and shows it to you; outside the
   app, `node render-svg.mjs <file>.svg` (next to this file) writes the PNG to Read.
@@ -72,7 +73,9 @@ The learning folder is `$TEACH_DATA` (default `~/.local/share/teach`; the app's 
 | `update` | Title, goal, why, course, deadline, status, phase, the knowledge `map`, `facts_add` (fact-check corrections), `sources_add`, and `next`, the one-line resume note. |
 | `plan` | The dependency plan. Each node is one reasoning step; the sidebar shows it as the progress list. |
 | `step` | Mark a step `current` when you start it, `done` with a result like `2/2` when the learner passes its check, and `shaky` when it needed a re-teach or still wobbles. |
-| `cards` | Add review items: `card`, `mcq`, `recall`, `trap`, `order` (timelines and sequences), `outline` (essay keyword skeletons). |
+| `cards` | Add review items, **only when asked** (the Flashcards action, or the learner asks): `card`, `mcq`, `recall`, `trap`, `order` (timelines and sequences), `outline` (essay keyword skeletons). |
+| `document` | Render a Markdown file in the topic folder into a PDF fitted to a page budget, and see every page. |
+| `deliver` | Finish an end-of-session action the app asked for: its button turns from grey to ready. |
 | `board` | The lesson board: put notes on it (explanations, worked examples, tables, formulas, a map or checklist the learner builds up), replace a note by its id, pin, remove, and set the `layout` (what's in view and how it's arranged). Returns what's on the board and where. |
 | `render` | Turn an SVG you drew (in the learning folder) into a PNG and see it in the result, to check it before you show it. |
 | `show` | Put a figure (path to PNG/SVG) or a self-contained interactive HTML page (simulator, plot, drill) on the board. |
@@ -139,6 +142,23 @@ Questions with `ask`:
 Keep the sidebar true as you go. After each step, `step` it and set `next` with `update`, so a pause at any
 moment resumes cleanly.
 
+## End-of-session actions
+
+When a session ends (a pause, Mark done, the plan through), the app shows a grid of actions. Nothing is made until
+the learner clicks one; until then each is a grey button. The kinds: `sheet` (a note sheet sized to what the exam
+allows, or a study sheet), `worksheet` (printable problems + a separate answer key), `practice` (a timed test on the
+board), `session` (a review or next session on their calendar; the app does that one alone), `cards` (flashcards),
+`quickref` (a bench or reference card), `assignment` (exercises to do on their own), `notes` (lesson notes).
+
+Your part:
+- At a pause or close, `update` with `suggest` (best first, each with a why). That's all.
+- When a `[Teach app] action <kind>` message arrives, make exactly that, in that turn, as its brief says: Markdown
+  in `out/`, rendered with `document` (`for` the kind, so the learner's size and page budget hold), checked on the
+  page images it returns and fixed until it fits and reads well, then `deliver`. No background agents for it: the
+  learner can pause it, which stops your turn, and a resume message picks it up from what you'd written.
+- A worksheet's key is solved by you first and checked; a wrong key is worse than none. Graded work gets parallel
+  problems only.
+
 ## Phase 0: frame
 
 Get the **topic** and the **goal**: what the learner should be able to do at the end, such as "solve RC
@@ -152,14 +172,15 @@ material is graded.
 **Shape the session by `why`:**
 
 - **exam:** count the days to the deadline and size the plan to fit, cutting depth before cutting coverage.
-  Build the deck as you teach (every check becomes an `mcq`, their real mistakes become `trap`s). Write
-  `sheet.md` before the exam. Finish with a timed mixed practice set (`text`/`number` questions with
-  `minutes`).
+  Log their real mistakes word for word: the note sheet, worksheet and flashcards actions build from them.
+  When you learn what the exam lets them bring (a note sheet, an index card, closed notes), record it with
+  `update` `allowance`, with where it says so. Near the exam, suggest the timed practice test and the note
+  sheet as end-of-session actions (below); don't make them unasked.
 - **homework:** see Academic integrity below.
 - **writing** (essays, in-class writing):
   - Teach the content, then use timed `text` questions for outlines and paragraphs.
   - Edit their draft: diagnose, point to fixes, budget words. Never write it for them.
-  - Add `outline` items and writing `checks` to the deck.
+  - Outline drills and writing checks go in the deck only if they ask for flashcards.
 - **skill** (an app or tool):
   - Check facts against the tool's real docs or source; versions differ.
   - Best taught **on their screen** when the app has screen mode (it needs screen-chalk): the "On my
@@ -241,8 +262,8 @@ Each step:
    - Wrong: work out *which* misconception produced that answer. Re-teach from a different angle (a
      picture, an analogy, a smaller case), then check again. Don't advance on a miss. Mark the step
      `shaky` if it took a re-teach.
-5. **Bank it.** Add the check questions to the deck (`cards`, as `mcq` or `recall`), plus a `card` for the
-   step's key fact. Log the step and how the check went, then set `next`.
+5. **Log it.** Log the step and how the check went (a miss in their own words, and what fixed it), then set
+   `next`. Don't add review cards as you go: flashcards are an end-of-session action the learner picks.
 
 Keep the steps easy to absorb. They can interrupt with a question at any point; answer it, then return to
 the node you were on.
@@ -273,6 +294,7 @@ minutes of steps (just ask whether they want to keep going). The app's Pause and
 2. Update `PROFILE.md`: new edges reached, misconceptions found or fixed, and any learning preference they
    expressed ("more pictures", "skip the analogies"). Keep it tight; it's an index of their understanding,
    not a diary.
-3. For exam and class topics, make sure the deck covers every step, and write or refresh `sheet.md`.
+3. Pick the end-of-session actions: call `update` with `suggest`, the ones that fit this topic best, best
+   first, each with a one-line why (and `allowance` for an exam, if you know it). Don't make any of them.
 4. **Git:** if the app syncs the learning folder (its system prompt says so), don't run git inside the app;
    in chat outside the app, `teach sync` ships it. Otherwise leave version control to the learner.

@@ -16,6 +16,8 @@ import { inside } from "./lib/platform.mjs";
 import * as review from "./lib/review.mjs";
 import * as board from "./lib/board.mjs";
 import { fileTools, callFile } from "./lib/files.mjs";
+import { renderDoc, describe as describeDoc } from "./lib/doc.mjs";
+import { layoutFor } from "./lib/actions.mjs";
 import { CHALK, ROUTE_TTL, takeInbox, chalk, speakSeconds, toast, panel, reviewPanel, reviewGood, screenable, isLive, OFF_SCREEN } from "./lib/screen.mjs";
 
 const TOPIC = process.env.TEACH_TOPIC;
@@ -87,6 +89,10 @@ const TOOLS = [
         map: { type: "array", description: "The knowledge map (replaces it): one entry per strand", items: { type: "object", required: ["strand"], properties: { strand: { type: "string" }, has: { type: "string", description: "hardest thing they reliably have" }, missing: { type: "string", description: "easiest thing they don't have yet" }, misconception: { type: "string" } } } },
         facts_add: { type: "array", items: { type: "string" }, description: "Fact-check corrections and conventions the teaching must respect (appended)" },
         sources_add: { type: "array", items: { type: "object", properties: { label: { type: "string" }, path: { type: "string" }, url: { type: "string" } } } },
+        allowance: { type: "object", description: "What the exam allows the learner to bring, when you know it (the course's own rule, with where it says so): kind sheet (with paper letter|a4|half-letter|index-3x5|index-4x6, sheets, sides 1|2), none (closed notes), open, or unknown. Sizes the note-sheet action.",
+          properties: { kind: { type: "string", enum: ["sheet", "none", "open", "unknown"] }, paper: { type: "string" }, sheets: { type: "number" }, sides: { type: "number" }, text: { type: "string", description: "the rule in the course's words" }, source: { type: "string", description: "where it says so" } } },
+        suggest: { type: "array", description: "At the end of a session: the end-of-session actions that fit best, best first, each with a one-line why the learner sees on its button. The app shows them as a grid; nothing is made until the learner clicks one. Kinds: sheet (note/study sheet PDF), worksheet (problems + key PDF), practice (timed test in Teach), session (a review or next session on their calendar), cards (flashcards), quickref (bench/reference card), assignment (practice on their own), notes (lesson notes PDF).",
+          items: { type: "object", required: ["kind"], properties: { kind: { type: "string", enum: ["sheet", "worksheet", "practice", "session", "cards", "quickref", "assignment", "notes"] }, why: { type: "string" } } } },
       },
     },
   },
@@ -113,7 +119,7 @@ const TOOLS = [
   },
   {
     name: "cards",
-    description: "Add review items to the topic's deck (spaced-repetition review and drills in the app's Review tab). Add each check question you asked as an mcq right after they answer, and key facts as cards. Exam topics: also traps (their real mistakes), recall items, timelines (order) and essay outlines (outline).",
+    description: "Add review items to the topic's deck (spaced-repetition review and drills in the app's Review tab). Only when the learner asked for them: the Flashcards action (\"[Teach app] action cards\") or their own request. Don't bank cards as you teach. Item types: card, mcq, recall, trap (their real mistakes), order (timelines), outline (essay keyword skeletons).",
     inputSchema: {
       type: "object",
       properties: {
@@ -173,6 +179,36 @@ const TOOLS = [
     },
   },
 ];
+
+// The end-of-session actions (lib/actions.mjs): the tutor makes one only when the app says the learner clicked it.
+TOOLS.push({
+  name: "document",
+  description: "Render a Markdown file in the topic folder (math as LaTeX, images by absolute path) into a print-ready PDF, and see every page. " +
+    "For an end-of-session action pass `for` (sheet, worksheet, worksheet-key, quickref, assignment, notes): the page size, page budget, columns and font come from what the learner chose, " +
+    "and the font shrinks to fit the budget when it's on \"as big as fits\". The result says whether it fits, the font it used, and problems to fix (math that doesn't parse, something too wide, an image that didn't load), with the pages as images. " +
+    "Fix the Markdown and render again until it fits and looks right. Directives, one per line: `::: break` (next column/page), `::: space 1.5in`, `::: lines 6` (ruled), `::: box 1in` (answer box). Task lists (`- [ ]`) print as checkboxes.",
+  inputSchema: {
+    type: "object", required: ["source"],
+    properties: {
+      source: { type: "string", description: "The .md file: relative to the topic folder (e.g. out/sheet.md) or absolute inside it" },
+      for: { type: "string", enum: ["sheet", "worksheet", "worksheet-key", "quickref", "assignment", "notes"], description: "The action it's for: its layout and budget are the learner's" },
+      layout: { type: "object", description: "Without `for`: style sheet|doc, paper, pages (budget), columns, font (pt or \"auto\"), title. With `for`: only columns may change.",
+        properties: { style: { type: "string" }, paper: { type: "string" }, pages: { type: "number" }, columns: { type: "number" }, font: {}, title: { type: "string" } } },
+    },
+  },
+}, {
+  name: "deliver",
+  description: "Finish an end-of-session action the app asked you to make (\"[Teach app] action …\"): marks it made, so its button turns from grey to ready and opens what you made. " +
+    "PDFs you rendered with document for it are attached already; name any other file in `files`. Call it once the thing is right, then reply with one short line.",
+  inputSchema: {
+    type: "object", required: ["kind", "summary"],
+    properties: {
+      kind: { type: "string", enum: ["sheet", "worksheet", "practice", "cards", "quickref", "assignment", "notes"] },
+      summary: { type: "string", description: "One line shown on the button, e.g. '1 sheet, both sides, 7.4 pt' or '6/8 in 20 min'" },
+      files: { type: "array", items: { type: "string" }, description: "Other files it made, relative to the topic folder" },
+    },
+  },
+});
 
 // The board, the lesson page's workspace (lib/board.mjs). Its notes are the tutor's lasting explanations.
 TOOLS.push({
@@ -442,6 +478,8 @@ async function call(name, args, id) {
       return [{ type: "text", text: `Rendered: ${png}` }, { type: "image", data: fs.readFileSync(png).toString("base64"), mimeType: "image/png" }];
     }
     case "cards": { const r = ops.cards(TOPIC, args); return `Added ${r.added} item(s); the deck has ${r.total}.`; }
+    case "document": return documentTool(args);
+    case "deliver": { ops.deliver(TOPIC, { kind: args.kind, summary: args.summary, files: args.files }); return "Delivered: its button is ready. Reply with one short line."; }
     case "show": { ops.normalizeShow(TOPIC, args); return withBoard("On the board."); }
     case "scene": {
       const sc = ops.normalizeScene(args);   // validate only; the app reads the call from the stream and puts it up
@@ -450,6 +488,31 @@ async function call(name, args, id) {
     }
     default: throw new Error(`unknown tool ${name}`);
   }
+}
+
+const FILE_LABELS = { "worksheet": "Worksheet", "worksheet-key": "Answer key", sheet: "Sheet", quickref: "Card", assignment: "Practice", notes: "Notes" };
+
+async function documentTool(args) {
+  const t = getTopic(TOPIC), dir = topicDir(TOPIC);
+  const src = path.resolve(dir, String(args.source || ""));
+  if (!src.startsWith(dir + path.sep) || !/\.md$/i.test(src) || !fs.existsSync(src)) throw new Error(`no Markdown file at ${src} (it must be a .md in the topic folder, ${dir})`);
+  let layout = args.layout || {}, kind = null;
+  if (args.for) {
+    kind = args.for === "worksheet-key" ? "worksheet" : String(args.for);
+    const o = t.outputs?.[kind];
+    if (!o?.settings) throw new Error(`nothing is being made for "${args.for}": render without \`for\`, or wait for the app's "[Teach app] action" message`);
+    layout = { ...layoutFor(args.for, o.settings, t), ...(Number(args.layout?.columns) ? { columns: Number(args.layout.columns) } : {}) };
+  }
+  const r = await renderDoc(src, src.replace(/\.md$/i, ".pdf"), layout);
+  if (kind) {
+    const o = getTopic(TOPIC).outputs[kind];
+    const files = (o.files || []).filter((f) => f.path !== r.pdf);
+    files.push({ label: FILE_LABELS[args.for] || "PDF", path: r.pdf, pages: r.pages, fits: r.fits });
+    files.sort((a, b) => (a.label === "Answer key") - (b.label === "Answer key"));
+    ops.setOutput(TOPIC, kind, { files, progress: `${r.pages} page${r.pages === 1 ? "" : "s"} rendered${r.fits ? "" : ", doesn't fit yet"}` });
+  }
+  const imgs = r.previews.slice(0, 6).map((f) => ({ type: "image", data: fs.readFileSync(f).toString("base64"), mimeType: "image/png" }));
+  return [{ type: "text", text: `${describeDoc(r)}\nPDF: ${r.pdf}` }, ...imgs];
 }
 
 const send = (m) => process.stdout.write(JSON.stringify(m) + "\n");

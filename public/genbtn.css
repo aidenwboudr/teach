@@ -1,0 +1,107 @@
+/* Teach: the generate button (public/genbtn.js). One look for everything Teach makes only when asked: the
+   end-of-session actions (a note sheet, a worksheet, a deck…) and a note's "Visualize it". Built on style.css's tokens.
+
+   States (data-state on button.gen):
+     idle     not made yet: grey. Hover invites: a slow light drifts across it, the border warms to the accent,
+              the hint fades in ("Generate"). Ambient while hovered, never a one-shot burst.
+     queued   asked for, waiting its turn: the working look, dimmer.
+     working  the model is making it: a light travels round the border and a soft sheen drifts across, both looping.
+              Hover shows "Pause"; a click pauses it for real (the app stops the model's turn).
+     paused   the same light, frozen where it stopped and dimmed. A click resumes.
+     ready    made: a crossfade to full colour; a click opens what it made.
+     failed   didn't finish: a red edge; a click tries again.
+   Every change between states is a crossfade (colour, opacity), no jumps. Reduced motion: the loops stop, the
+   states stay readable by colour and text.
+
+   Markup (genButton builds it):
+     button.gen[data-state] > span.gen-glyph(svg) + span.gen-text > (span.gen-title + span.gen-sub) + span.gen-hint
+   .gen-sm is the inline size (one line: glyph, title, hint), for a button inside a card. */
+
+@property --gen-a { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+@property --gen-x { syntax: "<percentage>"; inherits: false; initial-value: -60%; }
+
+.gen {
+  --gen-accent: var(--blue);
+  position: relative; isolation: isolate; display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto;
+  column-gap: 12px; align-items: start; width: 100%; min-height: 88px; padding: 14px 14px 12px; text-align: left;
+  border: 1px solid var(--edge); border-radius: var(--r); background: var(--card); color: var(--ink-3); cursor: pointer;
+  font: 400 14px/1.35 var(--font-ui); overflow: hidden;
+  transition: background-color var(--xfade) var(--ease), border-color var(--xfade) var(--ease), color var(--xfade) var(--ease), opacity var(--xfade) var(--ease);
+}
+.gen:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+/* the travelling light round the border (working, paused, queued) */
+.gen::before {
+  content: ""; position: absolute; inset: -1px; z-index: -1; border-radius: inherit; padding: 2px; opacity: 0;
+  background: conic-gradient(from var(--gen-a), transparent 0 52%, color-mix(in oklab, var(--gen-accent) 35%, transparent) 64%, var(--gen-accent) 78%, color-mix(in oklab, var(--gen-accent) 35%, transparent) 88%, transparent 96%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
+  transition: opacity var(--xfade) var(--ease); animation: gen-orbit 2.6s linear infinite; animation-play-state: paused;
+}
+/* the sheen that drifts across (hover invite, working) */
+.gen::after {
+  content: ""; position: absolute; inset: 0; z-index: -1; opacity: 0; pointer-events: none;
+  background: linear-gradient(105deg, transparent 0 calc(var(--gen-x) + 0%), color-mix(in oklab, var(--gen-accent) 17%, transparent) calc(var(--gen-x) + 18%), transparent calc(var(--gen-x) + 36%));
+  transition: opacity 400ms var(--ease); animation: gen-drift 3.4s var(--ease) infinite; animation-play-state: paused;
+}
+@keyframes gen-orbit { to { --gen-a: 360deg; } }
+@keyframes gen-drift { from { --gen-x: -60%; } to { --gen-x: 130%; } }
+
+.gen-glyph { grid-row: 1 / 3; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 9px;
+  background: var(--card-2); color: var(--ink-3); transition: background-color var(--xfade) var(--ease), color var(--xfade) var(--ease); }
+.gen-glyph svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.gen-text { display: grid; gap: 2px; min-width: 0; }
+.gen-title { font-weight: 600; font-size: 14.5px; color: var(--ink-2); transition: color var(--xfade) var(--ease); }
+.gen-sub { font-size: 12.5px; color: var(--ink-3); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.gen-hint { grid-column: 2; margin-top: 8px; font: 500 11.5px/1 var(--font-mono); letter-spacing: .02em; color: var(--ink-3); opacity: .55;
+  transition: opacity var(--xfade) var(--ease), color var(--xfade) var(--ease); }
+
+/* idle: grey; hover invites */
+.gen[data-state="idle"] .gen-glyph svg { opacity: .7; }
+.gen[data-state="idle"]:hover, .gen[data-state="idle"]:focus-visible { border-color: color-mix(in oklab, var(--gen-accent) 45%, var(--edge)); color: var(--ink-2); }
+.gen[data-state="idle"]:hover::after, .gen[data-state="idle"]:focus-visible::after { opacity: 1; animation-play-state: running; }
+.gen[data-state="idle"]:hover .gen-glyph, .gen[data-state="idle"]:focus-visible .gen-glyph { color: var(--gen-accent); background: color-mix(in oklab, var(--gen-accent) 12%, var(--card-2)); animation: gen-breathe 2.4s var(--ease) infinite; }
+.gen[data-state="idle"]:hover .gen-title, .gen[data-state="idle"]:focus-visible .gen-title { color: var(--ink); }
+.gen[data-state="idle"]:hover .gen-hint, .gen[data-state="idle"]:focus-visible .gen-hint { opacity: 1; color: var(--gen-accent); }
+@keyframes gen-breathe { 50% { transform: scale(1.06); } }
+
+/* working / queued / paused: the light; working moves, paused holds still */
+.gen:is([data-state="working"], [data-state="queued"], [data-state="paused"]) { border-color: color-mix(in oklab, var(--gen-accent) 22%, var(--edge)); color: var(--ink-2); }
+.gen:is([data-state="working"], [data-state="queued"], [data-state="paused"])::before { opacity: 1; }
+.gen[data-state="working"]::before, .gen[data-state="working"]::after { animation-play-state: running; }
+.gen[data-state="working"]::after { opacity: 1; }
+.gen[data-state="queued"]::before { opacity: .45; animation-play-state: running; animation-duration: 5s; }
+.gen[data-state="paused"]::before { opacity: .55; filter: saturate(.35); }
+.gen:is([data-state="working"], [data-state="queued"]) .gen-glyph { color: var(--gen-accent); background: color-mix(in oklab, var(--gen-accent) 12%, var(--card-2)); }
+.gen:is([data-state="working"], [data-state="queued"]) .gen-title { color: var(--ink); }
+.gen[data-state="working"] .gen-hint { opacity: .8; }
+.gen[data-state="working"]:hover .gen-hint, .gen[data-state="paused"]:hover .gen-hint { opacity: 1; color: var(--ink); }
+.gen[data-state="paused"] .gen-glyph { color: var(--ink-2); }
+.gen[data-state="paused"] .gen-title { color: var(--ink-2); }
+
+/* ready: full colour */
+.gen[data-state="ready"] { background: color-mix(in oklab, var(--gen-accent) 9%, var(--card)); border-color: color-mix(in oklab, var(--gen-accent) 40%, var(--edge)); color: var(--ink-2); }
+.gen[data-state="ready"] .gen-glyph { color: var(--accent-ink, var(--card)); background: var(--gen-accent); }
+.gen[data-state="ready"] .gen-title { color: var(--ink); }
+.gen[data-state="ready"] .gen-sub { color: var(--ink-2); }
+.gen[data-state="ready"] .gen-hint { opacity: .8; color: var(--gen-accent); }
+.gen[data-state="ready"]:hover { border-color: var(--gen-accent); }
+.gen[data-state="ready"]:hover .gen-hint { opacity: 1; }
+
+/* failed: a red edge, try again */
+.gen[data-state="failed"] { border-color: color-mix(in oklab, var(--red) 55%, var(--edge)); }
+.gen[data-state="failed"] .gen-hint { opacity: 1; color: var(--red); }
+.gen[data-state="failed"] .gen-title { color: var(--ink); }
+
+/* inline size: one line, for a button inside a card */
+.gen.gen-sm { display: inline-flex; align-items: center; gap: 8px; width: auto; min-height: 30px; padding: 0 12px 0 6px; border-radius: 999px; font-size: 13px; }
+.gen.gen-sm .gen-glyph { width: 22px; height: 22px; border-radius: 999px; }
+.gen.gen-sm .gen-glyph svg { width: 13px; height: 13px; }
+.gen.gen-sm .gen-text { display: contents; }
+.gen.gen-sm .gen-title { font-size: 13px; font-weight: 500; }
+.gen.gen-sm .gen-sub { display: none; }
+.gen.gen-sm .gen-hint { margin: 0 0 0 2px; font-size: 11px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .gen::before, .gen::after, .gen .gen-glyph { animation: none !important; }
+  .gen[data-state="working"]::before { background: none; border: 1.5px solid color-mix(in oklab, var(--gen-accent) 60%, transparent); padding: 0; -webkit-mask: none; mask: none; }
+}

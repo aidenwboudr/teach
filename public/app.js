@@ -442,6 +442,7 @@ function topicShell() {
               <li><button type="button" role="menuitem" data-menu="pause">Pause <kbd>P</kbd></button></li>
               <li><button type="button" role="menuitem" data-menu="fresh">Fresh session</button></li>
               <li><button type="button" role="menuitem" data-menu="done">Mark done</button></li>
+              <li><button type="button" role="menuitem" data-menu="next">What next…</button></li>
               <li class="sep" role="separator"></li>
               <li><button type="button" role="menuitem" data-menu="settings">Settings</button></li>
             </ul>
@@ -460,10 +461,11 @@ function topicShell() {
 
 async function menuAction(what) {
   const slug = T.slug;
-  if (what === "pause") { await api(`/api/topics/${slug}/pause`, {}); toast("Pausing: the tutor is noting where you stopped."); }
-  if (what === "done") { if (confirm("Mark this topic done? The tutor writes the recap, updates your profile and review material.")) { await api(`/api/topics/${slug}/done`, {}); toast("Wrapping up…"); } }
+  if (what === "pause") { await api(`/api/topics/${slug}/pause`, {}); toast("Pausing: the tutor is noting where you stopped."); N.open = true; }
+  if (what === "done") { if (confirm("Mark this topic done? The tutor writes the recap and updates your profile; then you pick what to make next (nothing is made until you click it).")) { await api(`/api/topics/${slug}/done`, {}); toast("Wrapping up…"); N.open = true; nextRefresh(0); } }
   if (what === "fresh") { if (confirm("Start a fresh session? The plan and log stay; the tutor starts from them with a clean context.")) { await api(`/api/topics/${slug}/fresh`, {}); toast("The next message starts a fresh session."); } }
   if (what === "settings") settingsDialog();
+  if (what === "next") { if (T.tab !== "lesson") { go(`/t/${slug}`); setTimeout(nextOpen, 300); } else nextOpen(); }
 }
 
 // One small state toast at a time, bottom centre: a new one replaces the text in place. role = the dot's colour.
@@ -549,6 +551,7 @@ async function mountLesson(shell) {
   side.setAttribute("aria-label", "Plan and notes");
   shell.append(main, side);
   boardMount(shell, main);
+  nextMount(main);
   renderSide();
   wireComposer(main);
   T.status = T.data.status || {};
@@ -983,7 +986,9 @@ function onTopicEvent(ev) {
     if (now !== was) toast(now ? "Super+/ now asks the tutor" : T.link?.ok === false ? "Laptop offline · the lesson goes on here" : "Super+/ is plain chalk again", now ? "teal" : "gold");
     return;
   }
+  if (ev.t === "actions") return nextEvent(ev);
   if (ev.t === "topic") return refreshTopic();
+  if (ev.t === "activity") nextEvent(ev);
   if (ev.t === "live") { T.data.live = ev.live; paintDock(); return; }
   if (ev.t === "state") { T.status = ev; paintDock(); renderSide(); wsPaint(); paintReply(); return; }
   if (T.tab !== "lesson") return;
@@ -1008,7 +1013,7 @@ function refreshTopic() {
     T.data = d; T.link = d.link || T.link;
     const head = $(".lesson-head");
     if (head) { const fresh = topicShell(); head.replaceWith($(".lesson-head", fresh)); }
-    if (T.tab === "lesson") { renderSide(); paintDock(); wsPlanChanged(); }
+    if (T.tab === "lesson") { renderSide(); paintDock(); wsPlanChanged(); nextRefresh(0); }
   }, 250);
 }
 
