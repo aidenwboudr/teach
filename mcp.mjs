@@ -107,6 +107,18 @@ const TOOLS = [
           id: { type: "string", description: "Short stable id, e.g. '1', '2', '3a'" }, title: { type: "string" },
           detail: { type: "string", description: "One line on what the step covers" }, deps: { type: "array", items: { type: "string" } },
           status: { type: "string", enum: ["todo", "current", "done", "shaky", "skipped"] }, result: { type: "string" }, note: { type: "string" } } } },
+        scope: { type: "array", description: "For an exam: its official scope, one entry per line of the scope sheet (review slide, exam page, syllabus), checked one level down. " +
+          "For each line, open the lecture(s) that taught it and list every sub-topic they teach, with the plan step(s) that cover it. A heading hides sub-topics " +
+          "(\"Polarization\" = polarizer chains AND polarization by reflection / Brewster's angle). The plan is refused while a sub-topic has no step and no `skip` reason. " +
+          "Kept across re-plans (pass it again to change it); [] records that no scope was published.",
+          items: { type: "object", required: ["line", "taught_in", "subtopics"], properties: {
+            line: { type: "string", description: "The scope line in the course's words, e.g. 'Polarization 5-10 pts'" },
+            source: { type: "string", description: "Where the scope says so (file or page)" },
+            taught_in: { type: "array", items: { type: "string" }, description: "The lecture(s)/reading that taught this line, as files you opened, e.g. 'lectures/L28-Polarization.pdf'" },
+            subtopics: { type: "array", items: { type: "object", required: ["name"], properties: {
+              name: { type: "string", description: "One thing the lecture teaches, e.g. 'Brewster angle: reflected light polarized parallel to the surface'" },
+              nodes: { type: "array", items: { type: "string" }, description: "Plan step ids that cover it" },
+              skip: { type: "string", description: "Why it isn't taught (e.g. 'instructor: not on Exam 3'); leave out when a step covers it" } } } } } } },
       },
     },
   },
@@ -443,7 +455,7 @@ async function call(name, args, id) {
       return "Shown to the learner" + (onScreen ? " in the Teach window only (pictures and ordering questions don't go on the screen): tell them out loud there's a question in Teach" : "") + ". End your turn now; their answers arrive as your next message.";
     }
     case "update": ops.update(TOPIC, args); return "Updated.";
-    case "plan": { const t = ops.plan(TOPIC, args); return `Plan set: ${t.plan.length} steps.`; }
+    case "plan": { const t = ops.plan(TOPIC, args); return [`Plan set: ${t.plan.length} steps.`, ops.scopeSummary(t)].filter(Boolean).join(" "); }
     case "board": {
       const op = board.normalizeOp(args);
       const b = await readBoard();

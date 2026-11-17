@@ -173,6 +173,8 @@ material is graded.
 **Shape the session by `why`:**
 
 - **exam:** count the days to the deadline and size the plan to fit, cutting depth before cutting coverage.
+  Coverage means every sub-topic the lectures behind each scope line taught, not just the scope's headings
+  (Phase 1 and Phase 2, step 3).
   Log their real mistakes word for word: the note sheet, worksheet and flashcards actions build from them.
   When you learn what the exam lets them bring (a note sheet, an index card, closed notes), record it with
   `update` `allowance`, with where it says so. Near the exam, suggest the timed practice test and the note
@@ -214,6 +216,13 @@ Map their understanding before teaching anything.
 1. List the **strands** the goal depends on, working backward from the goal. For example, RC transients
    need: KVL/KCL, the capacitor's i = C dv/dt, first-order linear ODEs, exponentials, and initial and final
    conditions. Drop any strand the profile already settles.
+   - **For an exam, the strands come from its official scope, one level down.** Find the scope (the exam's
+     page, the review slides, the syllabus), then for each line open the lecture(s) or reading that taught it
+     and list every sub-topic they teach (slide titles and in-class questions are a good guide). A scope line
+     is a heading, and a heading hides sub-topics: "Polarization 5-10 pts" meant polarizer chains *and*
+     polarization by reflection (Brewster's angle, the reflected wave polarized parallel to the surface). A
+     plan that drilled only the first sent the learner into the exam blind on the second. Probe the
+     sub-topics, not just the headings.
 2. Probe each strand with `ask` (purpose `probe`): up to 4 questions per set, each with 3-4 options. One
    option must be unambiguously correct (the key), and every distractor should be a *real* misconception,
    not filler.
@@ -239,7 +248,13 @@ Map their understanding before teaching anything.
      profile says which course and textbook): sign conventions, the textbook's symbols.
    - Fix the plan if something comes back wrong, and record the corrections with `update` (`facts_add`).
    - This is how the learner gets to trust the source without having to vet it.
-3. Set the plan with `plan` and give one line per node in your reply. Then ask (purpose `approve`) whether the
+3. **Exam coverage.** Record the scope from the probe (each line, the lectures that taught it, their
+   sub-topics) as `scope` on `plan`, each sub-topic tied to the step(s) that cover it. A sub-topic the probe
+   showed they already have still gets a step, marked `done` with the probe result, so the plan shows it was
+   checked. The tool refuses a plan while a sub-topic has no live step, unless it has a `skip` reason, which is
+   for what's really off the exam (the instructor said so). Short on time, cut depth, not coverage: one quick
+   step per sub-topic beats a deep plan with a hole in it.
+4. Set the plan with `plan` and give one line per node in your reply. Then ask (purpose `approve`) whether the
    goal and the path look right, and adjust if they want. Then teach.
 
 ## Phase 3: teach

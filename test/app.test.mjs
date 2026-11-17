@@ -53,6 +53,41 @@ test("plan keeps step statuses across a re-plan; step marks one current", () => 
   assert.throws(() => ops.step("e-field", { id: "7", status: "done" }), /no step/);
 });
 
+test("an exam plan must cover every sub-topic of the lectures behind each scope line", () => {
+  store.createTopic({ slug: "optics-exam", title: "Exam 3", why: "exam" });
+  const pol = { line: "Polarization 5-10 pts", source: "L31 review slide", taught_in: ["text/L28-Polarization.pdf.txt"],
+    subtopics: [{ name: "Malus's law, polarizer chains", nodes: ["1"] }, { name: "Polarization by reflection, Brewster angle", nodes: [] }] };
+  const nodes = [{ id: "1", title: "Polarizer chains" }];
+  // the heading alone was covered; the lecture's second sub-topic wasn't, so the plan is refused and nothing is saved
+  assert.throws(() => ops.plan("optics-exam", { nodes, scope: [pol] }), /Brewster angle.*Polarization 5-10 pts/);
+  assert.equal(store.getTopic("optics-exam").plan.length, 0);
+  assert.equal(store.getTopic("optics-exam").scope, undefined);
+  // a line has to name what taught it, and list sub-topics, not just the heading
+  assert.throws(() => ops.plan("optics-exam", { nodes, scope: [{ ...pol, taught_in: [] }] }), /taught_in/);
+  assert.throws(() => ops.plan("optics-exam", { nodes, scope: [{ ...pol, subtopics: [] }] }), /sub-topics/);
+  // a step for it (or a skip reason) lets the plan through
+  pol.subtopics[1].nodes = ["2"];
+  let t = ops.plan("optics-exam", { nodes: [...nodes, { id: "2", title: "Brewster angle" }], scope: [pol] });
+  assert.match(ops.scopeSummary(t), /1 line, 2 sub-topics, all covered/);
+  // a re-plan without scope keeps it, so dropping the step is refused
+  assert.throws(() => ops.plan("optics-exam", { nodes }), /names step 2, which isn't in the plan/);
+  // a step marked skipped doesn't cover anything, in the plan or later with `step`
+  assert.throws(() => ops.plan("optics-exam", { nodes: [...nodes, { id: "2", title: "Brewster angle", status: "skipped" }] }), /Brewster angle/);
+  assert.throws(() => ops.step("optics-exam", { id: "2", status: "skipped" }), /without it, 1 scope sub-topic has no step/);
+  assert.equal(store.getTopic("optics-exam").plan[1].status, "todo");
+  // a bare id instead of a list still counts
+  t = ops.plan("optics-exam", { nodes: [...nodes, { id: "2", title: "Brewster angle" }], scope: [{ ...pol, subtopics: [pol.subtopics[0], { name: "Brewster", nodes: "2" }] }] });
+  assert.match(ops.scopeSummary(t), /all covered/);
+  pol.subtopics[1] = { name: "Polarization by reflection, Brewster angle", skip: "instructor: not on this exam" };
+  t = ops.plan("optics-exam", { nodes, scope: [pol] });
+  assert.match(ops.scopeSummary(t), /1 skipped: Polarization by reflection, Brewster angle, instructor: not on this exam/);
+  // an exam topic with no scope recorded gets told to find one; [] records that none was published
+  store.createTopic({ slug: "no-scope", title: "Exam", why: "exam" });
+  assert.match(ops.scopeSummary(ops.plan("no-scope", { nodes })), /No exam scope recorded/);
+  assert.match(ops.scopeSummary(ops.plan("no-scope", { nodes, scope: [] })), /none published/);
+  assert.equal(ops.scopeSummary(store.getTopic("rc-circuits")), "");   // not an exam: nothing to say
+});
+
 test("cards dedupe and validate", () => {
   const r1 = ops.cards("e-field", { items: [{ type: "card", front: "E unit", back: "N/C" }, { type: "mcq", prompt: "q", options: ["a", "b"], answer: 1 }] });
   const r2 = ops.cards("e-field", { items: [{ type: "card", front: "E unit", back: "N/C" }] });

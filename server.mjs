@@ -1097,7 +1097,7 @@ async function route(req, res) {
         // The teach tools for a session outside the app (the `teach` command): same code path as the MCP server.
         const fn = { update: ops.update, plan: ops.plan, step: ops.step, cards: ops.cards }[b.op];
         if (!fn) return json(res, 400, { error: "op must be update, plan, step or cards" });
-        try { const r = fn(slug, b.args || {}); emit(slug, { t: "topic" }); return ok(res, { result: b.op === "cards" ? r : undefined }); }
+        try { const r = fn(slug, b.args || {}); emit(slug, { t: "topic" }); return ok(res, { result: b.op === "cards" ? r : undefined, summary: b.op === "plan" ? ops.scopeSummary(r) : undefined }); }
         catch (e) { return json(res, 400, { error: e.message }); }
       }
       default: return json(res, 404, { error: "unknown action" });
