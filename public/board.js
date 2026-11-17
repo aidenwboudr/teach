@@ -182,6 +182,7 @@ function leave(e) {
   e.el.classList.add("is-leaving");
   setTimeout(() => e.el.remove(), 220);
   if (e.x.kind === "scene") B.stages.delete(e.id);
+  if (e.x.kind === "note") B.stages.delete(`vis:${T.slug}:${e.id}`);
   if (e.x.kind === "ask" && e.x.status !== "pending") B.cards.delete(e.id);
 }
 
@@ -223,7 +224,9 @@ function updateBlock(e, x) {
   node.toggleAttribute("data-pin", !!x.pin);
   if (x.kind === "note") {
     $(".blk-label", node).innerHTML = `<span class="kind">${x.kept ? "Kept" : "Note"}</span>${x.title ? `<span class="title">${mdi(x.title)}</span>` : ""}`;
-    if (was?.body !== x.body || !body.firstChild) body.innerHTML = `<div class="prose">${md(x.body)}</div>`;
+    if (!body.firstChild) body.innerHTML = `<div class="prose"></div><div class="note-visual" hidden></div><div class="note-foot"></div>`;
+    if (was?.body !== x.body || !was) $(".prose", body).innerHTML = md(x.body);
+    paintNoteVisual(e, x);
   } else if (x.kind === "figure") {
     const s = x.show || {};
     $(".blk-label", node).innerHTML = `<span class="kind">Figure</span>${s.title ? `<span class="title">${mdi(s.title)}</span>` : ""}`;
@@ -268,13 +271,65 @@ function figureEl(s) {
   const p = s.path || "";
   if (s.kind === "html" || /\.html?$/i.test(p) || (!p && s.html)) {
     const f = frag(`<div class="figure-html"><iframe title="${esc(s.title || "interactive figure")}" sandbox="allow-scripts allow-forms" style="height:${Number(s.height) || 420}px"></iframe>
-      ${p ? `<a class="btn btn-sm btn-quiet figure-open" href="${fileURL(p)}" target="_blank" rel="noreferrer">${icon("open", "icon icon-sm")}Open</a>` : ""}${s.caption ? `<p class="aside">${mdi(s.caption)}</p>` : ""}</div>`);
+      ${p ? `<a class="btn btn-sm btn-quiet figure-open" href="${fileURL(p)}&fig=1&theme=${document.documentElement.dataset.theme === "light" ? "light" : "dark"}" target="_blank" rel="noreferrer">${icon("open", "icon icon-sm")}Open</a>` : ""}${s.caption ? `<p class="aside">${mdi(s.caption)}</p>` : ""}</div>`);
     const frame = $("iframe", f);
-    if (p) frame.src = fileURL(p);
+    frame.classList.add("themed");   // the theme switch reaches it (figure.js listens)
+    if (p) frame.src = `${fileURL(p)}&fig=1&theme=${document.documentElement.dataset.theme === "light" ? "light" : "dark"}`;
     else frame.srcdoc = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval' data:; style-src 'unsafe-inline' data:; img-src data: blob:; font-src data:">${s.html}`;
     return f;
   }
+  if (/\.svg$/i.test(p)) return frag(`<figure class="tf-figure" data-svg="${esc(fileURL(p))}">${s.caption || s.title ? `<figcaption>${mdi(s.caption || s.title)}</figcaption>` : ""}</figure>`);
   return frag(`<figure class="prose"><img src="${fileURL(p)}" alt="${esc(s.title || "figure")}">${s.caption || s.title ? `<figcaption>${mdi(s.caption || s.title)}</figcaption>` : ""}</figure>`);
+}
+
+// ---------- a note's own visual: "Visualize it" ----------
+
+// The button at the bottom right of every note card (the generate button, public/genbtn.js): grey until a visual is
+// made; a click draws one into the card (cancel while it's drawing); then it hides and shows it, and "Another view"
+// draws a different one. The visual is a live scene (chalk's engine, like a scene block) or a themed SVG figure.
+const VIS_HINT = { idle: "draw it", failed: "didn't work · try again" };
+function paintNoteVisual(e, x) {
+  const body = $(".blk-body", e.el), box = $(".note-visual", body), foot = $(".note-foot", body);
+  if (!box || !foot) return;
+  const v = x.visual || null, job = x.vjob || null, sid = v?.stage || `vis:${T.slug}:${x.id}`;
+  const hasFigure = /!\[[^\]]*\]\([^)]+\)|```svg/.test(x.body || "");
+  const send = (op) => api(`/api/topics/${T.slug}/visualize`, { op, note: x.id }).catch((err) => toast(err.message, "red"));
+  if (!e.vis) {
+    foot.innerHTML = `<span class="vis-err" hidden></span><button class="btn btn-sm btn-quiet vis-redo" type="button" hidden>${icon("visual", "icon icon-sm")}Another view</button><button type="button"></button>`;
+    e.vis = { g: genButton($("button:last-child", foot), { glyph: "i-visual", size: "sm", title: "Visualize it", hints: VIS_HINT,
+      onGenerate: () => send("start"), onRetry: () => send("start"), onPause: () => send("cancel"),
+      onOpen: () => send(e.x.visual?.hidden ? "show" : "hide") }), key: "" };
+    $(".vis-redo", foot).addEventListener("click", () => send("start"));
+  }
+  const g = e.vis.g, err = $(".vis-err", foot), redo = $(".vis-redo", foot);
+  if (job?.state === "working") g.set("working", { title: v ? "Another view" : "Visualizing", hint: `${(job.sub || "drawing").toLowerCase()} · click to cancel` });
+  else if (job?.state === "failed") g.set("failed", { title: "Visualize it", hint: null });
+  else if (v) g.set("ready", { title: v.hidden ? "Show visual" : "Visual", hint: v.hidden ? "show" : "hide" });
+  else g.set("idle", { title: hasFigure ? "Another view" : "Visualize it", hint: null });
+  err.hidden = job?.state !== "failed" && !(v?.stale && !job);
+  err.classList.toggle("is-stale", !job && !!v?.stale);
+  err.textContent = job?.state === "failed" ? job.error || "" : v?.stale && !job ? "Drawn for an earlier version of this note" : "";
+  err.title = err.textContent;
+  redo.hidden = !v || !!job;
+  // the picture itself: while one is drawing (and none is up yet), a placeholder that drifts like the button
+  const key = job?.state === "working" && !v ? "wait" : v && !v.hidden ? `${v.kind}:${v.at}:${v.path || ""}` : "";
+  if (key === e.vis.key) return;
+  e.vis.key = key;
+  B.stages.delete(sid);
+  box.hidden = !key;
+  box.innerHTML = "";
+  if (!key) return;
+  if (key === "wait") { box.innerHTML = `<div class="vis-wait"><span>Drawing a visual for this note…</span></div>`; return; }
+  if (v.kind === "svg") { box.append(frag(`<figure class="tf-figure" data-svg="${esc(`${fileURL(v.path)}&v=${encodeURIComponent(v.at)}`)}"></figure>`)); return; }
+  box.append(frag(html`
+    <section class="stage" aria-label="${esc(v.title || "Visual")}">
+      <div class="stage-canvas" tabindex="0"><img alt="${esc(v.title || "visual")}" draggable="false" hidden><p class="stage-wait">Setting up the scene…</p></div>
+      <aside class="predict" hidden></aside>
+    </section>`));
+  const st = { id: sid, it: { id: sid, scene: { title: v.title, predict: [] }, predictions: {} }, el: $(".stage", box), seq: 0, w: 0, h: 0, step: 0, gate: null, sent: new Map(), lat: [], inSeq: 0 };
+  B.stages.set(sid, st);
+  wireStage(st);
+  stageOpen(st);
 }
 
 // The question card the keys work on: the first one still waiting, in board order.

@@ -35,6 +35,7 @@
     "lib/",
     "public/",
     "skill/render-svg.mjs",
+    "skill/figures.md",
     "skill/render-svg.sh",
     "skill/SKILL.md",
     "examples/",

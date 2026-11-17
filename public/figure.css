@@ -1,0 +1,80 @@
+/* The figure theme: every figure Teach shows (an SVG the tutor drew, a note's "Visualize it" picture, an interactive
+   page) in chalk's visual language, from the app's own tokens (style.css: the Manim ground, the 3b1b colour roles,
+   the stage serif). A figure brings only its geometry and class names; colour, fonts, stroke widths, arrowheads and
+   the math come from here and public/figure.js, so it follows the app's light/dark switch and never shows up as a
+   white box. lib/figcheck.mjs refuses figures that paint their own (a background, colour codes, fonts).
+
+   SVG contract (SKILL.md, Visuals):
+     <svg viewBox="0 0 W H">       no width/height needed, no background
+     colour  class="blue|yellow|teal|green|gold|red|orange|purple|pink|grey|dim|ink" on a shape, text or <g>
+     shapes  stroked 2.4 in their colour, unfilled; .fill (solid) .soft (a tint) .thin .thick .dash .dot
+     arrows  class="arrow" on a line/path (head at its end), "arrow2" (both ends): chalk's filled head
+     text    the stage serif, 15 units; .small .big .ui .mono; $…$ inside a <text> is typeset with KaTeX
+             every label gets chalk's halo (a ring of the ground colour), so a line behind it never cuts it */
+
+.tf-figure { --fig-bg: var(--card); margin: 0; color: var(--ink); }
+.tf-figure > svg.tf { display: block; max-width: 100%; height: auto; margin: 0 auto; overflow: hidden; }
+.tf-figure figcaption { margin-top: 6px; color: var(--ink-2); font: 400 13px/1.45 var(--font-ui); text-align: center; }
+.tf-figure.tf-legacy > img { display: block; max-width: 100%; height: auto; margin: 0 auto; border-radius: 6px; }
+.tf-figure .tf-error { color: var(--red); font: 13px/1.5 var(--font-mono); }
+.ground .tf-figure, .tf-figure.on-ground { --fig-bg: var(--ground); }
+/* in a note: flat on the card, not a framed picture (style.css frames .prose figure images) */
+.prose .tf-figure svg { border: 0; border-radius: 0; background: none; max-width: none; }
+.prose .tf-figure > svg.tf { max-width: 100%; }
+
+svg.tf { color: var(--ink); font-family: var(--font-math); font-size: 15px; }
+svg.tf :is(line, polyline, path, rect, circle, ellipse, polygon) {
+  fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+svg.tf :is(polyline, path).plot, svg.tf .plot :is(polyline, path) { stroke-width: 3; }
+svg.tf .fill, svg.tf .fill :is(path, rect, circle, ellipse, polygon) { fill: currentColor; }
+svg.tf .soft, svg.tf .soft :is(path, rect, circle, ellipse, polygon) { fill: color-mix(in oklab, currentColor 20%, transparent); }
+svg.tf .ground, svg.tf .ground :is(path, rect, circle, ellipse, polygon) { fill: var(--fig-bg); }
+svg.tf .thin, svg.tf .thin * { stroke-width: 1.2; }
+svg.tf .thick, svg.tf .thick * { stroke-width: 3.4; }
+svg.tf .dash, svg.tf .dash * { stroke-dasharray: 6 5; }
+svg.tf .dot, svg.tf .dot * { stroke-dasharray: 0.1 5; }
+svg.tf .noline, svg.tf .noline * { stroke: none; }
+svg.tf :is(.arrow, .arrow2) { stroke-linecap: butt; }
+svg.tf path.tf-head { fill: currentColor; stroke: none; }
+svg.tf text { fill: currentColor; stroke: var(--fig-bg); stroke-width: 3.5px; stroke-opacity: .85; stroke-linejoin: round; paint-order: stroke; }
+svg.tf text.small, svg.tf .small text { font-size: 13px; }
+svg.tf text.big, svg.tf .big text { font-size: 19px; }
+svg.tf text.ui, svg.tf .ui text { font-family: var(--font-ui); }
+svg.tf text.mono, svg.tf .mono text { font-family: var(--font-mono); font-size: 13px; }
+svg.tf foreignObject { overflow: visible; }
+svg.tf .katex svg path { fill: currentColor; stroke: none; }   /* KaTeX's own accents (\vec, \hat): not a figure shape */
+svg.tf .tf-tex { display: inline-block; white-space: nowrap; color: currentColor; font-family: var(--font-math); line-height: 1;
+  text-shadow: 0 0 2px var(--fig-bg), 0 0 2px var(--fig-bg), 0 0 3px var(--fig-bg); }
+svg.tf .tf-tex .katex { font-size: 1.05em; }
+
+/* the colour roles: chalk's scene palette (scene.py THEMES) = the app's tokens */
+svg.tf .ink   { color: var(--ink); }
+svg.tf .dim   { color: var(--stage-dim); }
+svg.tf .blue  { color: var(--blue); }
+svg.tf .yellow{ color: var(--yellow); }
+svg.tf .teal  { color: var(--teal); }
+svg.tf .green { color: var(--green); }
+svg.tf .gold  { color: var(--gold); }
+svg.tf .red   { color: var(--red); }
+svg.tf .orange{ color: var(--fig-orange); }
+svg.tf .purple{ color: var(--fig-purple); }
+svg.tf .pink  { color: var(--fig-pink); }
+svg.tf :is(.grey, .gray) { color: var(--fig-grey); }
+:root { --fig-orange: light-dark(#E0731A, #FF862F); --fig-purple: light-dark(#7A4DC7, #9A72AC); --fig-pink: light-dark(#CC408C, #D147BD); --fig-grey: light-dark(#77736C, #888888); }
+
+/* a note's own visual ("Visualize it"): under the note's text, flat on its card (no box of its own, no stripe) */
+.note-visual { margin: 14px 0 2px; }
+.note-visual[hidden] { display: none; }
+.note-visual .stage { margin: 0; }
+.note-visual .tf-figure > svg.tf { max-height: 420px; }
+.vis-wait { position: relative; display: grid; place-items: center; height: 180px; border: 1px solid var(--edge); border-radius: var(--r);
+  background: var(--ground); color: var(--ink-3); font: 400 13px var(--font-ui); overflow: hidden; }
+.vis-wait::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(105deg, transparent 0 calc(var(--gen-x) + 0%), color-mix(in oklab, var(--blue) 12%, transparent) calc(var(--gen-x) + 18%), transparent calc(var(--gen-x) + 36%));
+  animation: gen-drift 3.4s var(--ease) infinite; }
+@media (prefers-reduced-motion: reduce) { .vis-wait::after { animation: none; } }
+.note-foot { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.note-foot .vis-err { margin-right: auto; color: var(--red); font: 12px/1.4 var(--font-ui); }
+.note-foot .vis-err.is-stale { color: var(--ink-3); }
+.note-foot .vis-redo { color: var(--ink-3); }
+.note-foot .vis-redo:hover { color: var(--ink); }
