@@ -478,21 +478,22 @@ function toast(text, role = "blue") {
 }
 
 function settingsDialog() {
-  const t = T.data.topic;
+  const t = T.data.topic, tutor = T.data.tutor || { models: true, effort: true };
   const d = frag(html`
     <dialog class="dialog">
       <form method="dialog">
         <h2>Settings · ${esc(t.title)}</h2>
         <label class="field-row"><span>Title</span><input class="field" name="title" value="${esc(t.title)}"></label>
         <label class="field-row"><span>Deadline</span><input class="field" type="date" name="deadline" value="${esc(t.deadline)}"></label>
-        <label class="field-row"><span>Tutor model</span><select class="field" name="model">${["opus", "sonnet", "fable"].map((m) => `<option${t.settings.model === m ? " selected" : ""}>${m}</option>`).join("")}</select></label>
-        <label class="field-row"><span>Effort</span><select class="field" name="effort">${["medium", "high", "xhigh"].map((m) => `<option${t.settings.effort === m ? " selected" : ""}>${m}</option>`).join("")}</select></label>
+        ${tutor.models ? `<label class="field-row"><span>Tutor model</span><select class="field" name="model">${["opus", "sonnet", "fable"].map((m) => `<option${t.settings.model === m ? " selected" : ""}>${m}</option>`).join("")}</select></label>`
+          : `<div class="field-row"><span>Tutor</span><span>${esc(tutor.label)}</span></div>`}
+        ${tutor.effort ? `<label class="field-row"><span>Effort</span><select class="field" name="effort">${["medium", "high", "xhigh"].map((m) => `<option${t.settings.effort === m ? " selected" : ""}>${m}</option>`).join("")}</select></label>` : ""}
         <label class="field-row check"><input type="checkbox" name="review"${t.settings.review !== false ? " checked" : ""}> <span>Include in daily review</span></label>
         <label class="field-row check screen-chip"><input type="checkbox" name="screen"${t.settings.screen ? " checked" : ""}> <span>Teach on my screen</span></label>
         <label class="field-row check screen-chip"><input type="checkbox" name="autoScreen"${t.settings.autoScreen !== false ? " checked" : ""}> <span>The tutor may take a step onto my screen when it's about something there</span></label>
         <label class="field-row check"><input type="checkbox" name="voice"${t.settings.voice !== false ? " checked" : ""}> <span>Talk out loud on my screen</span></label>
         <label class="field-row"><span>Status</span><select class="field" name="status">${["active", "paused", "done", "archived"].map((m) => `<option${t.status === m ? " selected" : ""}>${m}</option>`).join("")}</select></label>
-        <p class="hint">Model and effort apply from the next session. Archived topics leave the home page and review.</p>
+        <p class="hint">${tutor.models ? "Model and effort apply" : tutor.effort ? "Effort applies" : "Changes apply"} from the next session${tutor.models ? "" : ` (the model is ${esc(tutor.label)}'s default, or TEACH_MODEL)`}. Archived topics leave the home page and review.</p>
         <div class="acts"><button class="btn btn-primary" value="save">Save</button><button class="btn btn-quiet" value="cancel">Cancel</button></div>
       </form>
     </dialog>`);
@@ -1043,7 +1044,7 @@ function renderSide() {
     ${agents.length ? `<h3>Background work <span class="n">${agents.filter((a) => a.state === "running").length} running</span></h3><ul class="side-list agents">
       ${agents.map((a) => `<li>${a.state === "running" ? '<span class="spinner" aria-hidden="true"></span>' : icon("check", "icon done-mark")}<span>${esc(a.label)}</span><span class="t">${a.state === "running" ? "" : a.state === "error" ? "failed" : "done"}</span></li>`).join("")}</ul>` : ""}
     <h3>Session</h3>
-    <p class="side-note">${T.status.alive ? (T.status.busy ? "The tutor is working." : "The tutor is here.") : "The tutor starts when you send something."} ${t.settings.model} · ${t.settings.effort}</p>`;
+    <p class="side-note">${T.status.alive ? (T.status.busy ? "The tutor is working." : "The tutor is here.") : "The tutor starts when you send something."} ${T.data.tutor && !T.data.tutor.models ? esc(T.data.tutor.label) + (T.data.tutor.effort ? ` · ${t.settings.effort}` : "") : `${t.settings.model} · ${t.settings.effort}`}</p>`;
   $(".side-close", side).addEventListener("click", () => { $(".lesson").classList.remove("side-open"); });
 }
 
@@ -1063,7 +1064,7 @@ function mountFiles(shell) {
       ${files.length ? `<ul class="file-grid">${files.map((f) => `<li>${/\.(png|jpe?g|gif|webp|svg)$/i.test(f.name) ? `<a href="${fileURL(f.path)}" target="_blank" rel="noreferrer"><img src="${fileURL(f.path)}" alt=""></a>` : ""}
         <a href="${fileURL(f.path)}" target="_blank" rel="noreferrer">${esc(f.name)}</a> <span class="faint mono">${f.kind} · ${Math.max(1, Math.round(f.size / 1024))} KB</span></li>`).join("")}</ul>` : `<p class="muted">Nothing attached yet. Attach files from the lesson's composer.</p>`}
       ${t.sources.length ? `<h2>Sources</h2><ul>${t.sources.map((s) => `<li>${s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noreferrer">${esc(s.label)}</a>` : esc(s.label)}${s.path ? ` <span class="faint mono">${esc(s.path)}</span>` : ""}</li>`).join("")}</ul>` : ""}
-      <h2>Sessions</h2><ul>${t.sessions.map((s, i) => `<li>Session ${i + 1} · ${s.started ? shortDate(s.started) : ""} · ${esc({ t3: "T3 thread", focus: "focus tutor", terminal: "terminal", app: "Teach" }[s.via] || s.via)}${s.title ? ` · ${esc(s.title)}` : ""} <span class="faint mono">${esc(s.id.slice(0, 8))}</span></li>`).join("")}</ul>
+      <h2>Sessions</h2><ul>${t.sessions.map((s, i) => `<li>Session ${i + 1} · ${s.started ? shortDate(s.started) : ""} · ${esc({ t3: "T3 thread", focus: "focus tutor", terminal: "terminal", app: "Teach" }[s.via] || s.via)}${s.title ? ` · ${esc(s.title)}` : ""}${s.provider ? ` · ${esc(s.provider)}` : ""} <span class="faint mono">${esc(s.id.slice(0, 8))}</span></li>`).join("")}</ul>
     </div></div>`);
   shell.append(doc);
 }

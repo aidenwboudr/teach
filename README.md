@@ -1,7 +1,8 @@
 # Teach
 
-A one-to-one tutor built on [Claude Code](https://docs.claude.com/en/docs/claude-code/overview). Tell it what you
-want to learn. It probes what you already know with graded multiple-choice questions, plans a fact-checked path
+A one-to-one tutor that runs on the AI agent you already use: [Claude Code](https://docs.claude.com/en/docs/claude-code/overview)
+(the default), OpenAI's [Codex](https://developers.openai.com/codex/cli), Google's
+[Gemini CLI](https://github.com/google-gemini/gemini-cli), or a local model. Tell it what you want to learn. It probes what you already know with graded multiple-choice questions, plans a fact-checked path
 from there to your goal, and teaches it one reasoning step at a time, checking you after each step. It keeps a
 log, a knowledge map and a spaced-repetition deck for every topic, all in a local web app.
 
@@ -49,9 +50,9 @@ folder per topic (`topic.json`, `log.md`, `deck.json`, `figures/`).
 
 - **Linux, macOS or Windows** (or Docker anywhere). Screen mode needs Linux with Sway.
 - **Node.js 22.5 or newer.** No npm dependencies.
-- **Claude Code**, logged in. Each topic runs as a Claude Code session (`claude -p`), so you use your own
-  Claude subscription or API key, however your Claude Code is set up (`claude` login, or `ANTHROPIC_API_KEY`).
-  Teach never calls the Anthropic API itself and never sees your key.
+- **One AI agent CLI, logged in**: Claude Code (default), Codex, Gemini CLI, or Codex pointed at a local model (see
+  [Which AI](#which-ai)). Each topic runs as a session of that CLI, on your own subscription, login or key, however
+  that CLI is set up. Teach never calls a model API itself and never sees or stores a key.
 - Optional: Chrome, Edge or Chromium, so the tutor can check the diagrams it draws (Edge comes with Windows).
 
 ## Install
@@ -61,10 +62,12 @@ npm install -g teach-tutor && teach setup --demo
 ```
 
 Then open **http://127.0.0.1:7800** (or run `teach`). Don't have Claude Code yet? `npm install -g
-@anthropic-ai/claude-code`, then run `claude` once to log in.
+@anthropic-ai/claude-code`, then run `claude` once to log in. On another AI: `teach setup --provider codex` (or
+`gemini`, or `local --model <name>`); run in a terminal, `teach setup` asks.
 
-`teach setup` creates your learning folder (`~/.local/share/teach`; `--demo` adds two example topics), links the
-skill into `~/.claude/skills/teach`, and keeps the server running in the background:
+`teach setup` creates your learning folder (`~/.local/share/teach`; `--demo` adds two example topics), saves which AI
+tutors run on (`TEACH_PROVIDER`) and checks that its CLI is installed and logged in, links the skill into
+`~/.claude/skills/teach`, and keeps the server running in the background:
 
 | | How it runs | Logs |
 |---|---|---|
@@ -75,10 +78,45 @@ skill into `~/.claude/skills/teach`, and keeps the server running in the backgro
 `teach setup --no-service` skips that; run `teach serve` in a terminal when you want it. On Windows, WSL works
 too: inside it, follow the Linux steps (with systemd enabled in WSL, or `--no-service`).
 
-From any Claude Code chat, `/teach <topic>` (or "teach me …") hands the topic to the app.
+From any Claude Code chat, `/teach <topic>` (or "teach me …") hands the topic to the app (from any other chat, run
+`teach new "<topic>"`).
 
 From a git checkout instead: `git clone https://github.com/aidenwboudr/teach.git && cd teach && ./install.sh --demo`
 (`node cli.mjs setup --demo` on Windows). Same options.
+
+### Which AI
+
+Every topic runs the same method (probe, a fact-checked plan, one checked step at a time, question cards, the board,
+review) through the same `teach` tools. What changes is the CLI underneath, how much of its safety Teach can
+enforce, and a few features.
+
+| `TEACH_PROVIDER` | Runs | Sign in (the CLI's own) | Restricted mode (the default) | Not available |
+|---|---|---|---|---|
+| `claude` (default) | `claude -p` | `claude` login, or `ANTHROPIC_API_KEY` | Teach answers each of Claude Code's permission checks: no shell, reads in the learning and work folders, writes only in the learning folder | |
+| `codex` | `codex exec --json`, one process per turn | `codex login` (ChatGPT) or `codex login --with-api-key` (or `CODEX_API_KEY`) | Codex's shell, exec and image tools are off and its sandbox is read-only; the tutor reads and writes through the `teach` file tools, which check every path the same way | screen mode, the model picker (`TEACH_MODEL` sets one), subagents |
+| `gemini` | `gemini -o stream-json`, one process per turn | a Gemini API key in Gemini CLI's own config (`GEMINI_API_KEY` in `~/.gemini/.env`, from [AI Studio](https://aistudio.google.com/apikey)) or Vertex AI | a policy file denies its shell and its own write tools; its read tools stay, and Gemini CLI keeps them inside its workspace (the work and learning folders, Teach's uploads, the tutor's own folder in Teach's state); writes go through the `teach` file tools | screen mode, the model picker, effort, subagents |
+| `local` | Codex CLI with a local model provider | none: a model server at `TEACH_LOCAL_URL` (Ollama by default) and `TEACH_MODEL` | as `codex` | as `codex`, and effort |
+
+Things to know:
+
+- **Google sign-in doesn't work for Gemini CLI any more** for individual accounts (it answers "This client is no
+  longer supported for Gemini Code Assist for individuals"). Use an API key. `teach setup` sends Gemini CLI one test
+  prompt to check, and tells you if that's what it hit.
+- **Local models need a big enough context and a tool-calling model.** The tutor's instructions plus Codex's own are
+  about 15k tokens, and Ollama's default context is 4096, which cuts them off. Give the model at least 32k
+  (`OLLAMA_CONTEXT_LENGTH=32768` for the Ollama server, or a model made with `PARAMETER num_ctx 32768`). The server
+  must speak OpenAI's Responses API (`/v1/responses`): Ollama, LM Studio and vLLM do; Codex no longer supports the
+  older chat-completions API. If it needs a key, put it in an environment variable and name that variable in
+  `TEACH_LOCAL_KEY_ENV` (Codex reads it; Teach doesn't). Small models work but
+  slowly and loosely: a 9B model on a CPU-only machine followed the method (profile, goal, probe card, plan, first
+  step, board note, log) at 5 to 15 minutes a turn, and sometimes sent a malformed card. Use the largest model you can
+  run, on a GPU if you have one.
+- **Fact-checking.** On Claude Code, subagents check the plan. Elsewhere the tutor checks it itself, with web search,
+  in the same session.
+- **Switching AI** keeps every topic, its plan, log, deck and history. A session only resumes on the AI it ran on,
+  so after a switch the next message starts a fresh session that reads the topic's state and log and carries on.
+- Codex's and Gemini's own session files stay where those CLIs keep them; Teach also writes each session's lesson
+  history to `~/.local/state/teach/transcripts/`, which is what the lesson page is rebuilt from.
 
 ### Docker
 
@@ -88,7 +126,9 @@ docker compose run --rm teach claude      # log Claude Code in once (then /exit)
 TEACH_DEMO=1 docker compose up -d         # http://127.0.0.1:7800
 ```
 
-Your learning folder is `./learning` next to `compose.yaml` (`TEACH_FOLDER=/path/to/folder` picks another). Instead
+For Codex or Gemini CLI in the image, build with them (`docker compose build --build-arg WITH_CODEX=1` or
+`--build-arg WITH_GEMINI=1`), set `TEACH_PROVIDER` in `.env`, and log in the same way (`docker compose run --rm teach
+codex login --device-auth`). Your learning folder is `./learning` next to `compose.yaml` (`TEACH_FOLDER=/path/to/folder` picks another). Instead
 of logging in, you can put `CLAUDE_CODE_OAUTH_TOKEN` (from `claude setup-token`) or `ANTHROPIC_API_KEY` in a `.env`
 file next to `compose.yaml`. The container runs as uid 1000; on Linux, give that user write access to the folder.
 
@@ -106,14 +146,18 @@ changing it (`systemctl --user restart teach`, `launchctl kickstart -k gui/$(id 
 | `TEACH_ACCESS` | `restricted` | What tutors may do; `full` gives them a shell (see Security) |
 | `TEACH_DATA` | `~/.local/share/teach` | Learning folder: `PROFILE.md` and `topics/` |
 | `TEACH_WORK` | the learning folder | Where tutor sessions run (their working directory; they can read files there) |
-| `TEACH_STATE` | `~/.local/state/teach` | Machine-local state: review schedule, answers, uploads, `claude.log` |
+| `TEACH_STATE` | `~/.local/state/teach` | Machine-local state: review schedule, answers, uploads, the tutor CLI's log (`claude.log`, `codex.log`, `gemini.log`) |
 | `TEACH_PORT` / `TEACH_HOST` | `7800` / `127.0.0.1` | Where it listens |
 | `TEACH_URL` | `http://127.0.0.1:$TEACH_PORT` | The address `teach` uses and prints (the server answers to its host name too) |
 | `TEACH_SOCKET` | (off) | Listen on this Unix socket (mode 0600) instead of TCP, for a reverse proxy |
 | `TEACH_TS_USER` | (none) | With `TEACH_SOCKET` behind Tailscale Serve: the only tailnet login let through |
 | `TEACH_LEARNER` | `the learner` | What the tutor calls you (a first name reads better) |
+| `TEACH_PROVIDER` | `claude` | Which AI tutors run on: `claude`, `codex`, `gemini` or `local` (see [Which AI](#which-ai)) |
 | `TEACH_CLAUDE` | `claude` | The Claude Code binary (or a wrapper) |
-| `TEACH_MODEL` | per topic (Opus) | Force a model for every tutor (e.g. `sonnet`) |
+| `TEACH_CODEX`, `TEACH_GEMINI` | `codex`, `gemini` | The Codex and Gemini CLI binaries |
+| `TEACH_MODEL` | per topic (Opus) on Claude Code; the CLI's default elsewhere | Force a model for every tutor, in that CLI's naming (e.g. `sonnet`, `gpt-5.5`, `gemini-2.5-pro`, `qwen3:32b`); required for `local` |
+| `TEACH_LOCAL_URL` | `http://127.0.0.1:11434/v1` | `local`: the model server (OpenAI-style, with the Responses API) |
+| `TEACH_LOCAL_KEY_ENV` | (none) | `local`: the name of the variable that holds that server's key, if it needs one |
 | `TEACH_CHROME` | found by itself | The browser that renders the tutor's diagrams |
 | `TEACH_SYNC` | off | `git-pr`: when the learning folder is in a GitHub checkout, ship changes as a PR and squash-merge it (needs `gh`) |
 | `TEACH_BROWSER` | the system's opener | How `teach open` opens the app, e.g. `chromium --app={app}` |
@@ -125,20 +169,26 @@ changing it (`systemctl --user restart teach`, `launchctl kickstart -k gui/$(id 
 
 ## Security: read this
 
-- **By default a tutor has no shell.** Teach answers Claude Code's permission checks itself: a tutor can read the
-  learning and work folders, search and fetch from the web, use subagents and the teach tools (it checks its
-  diagrams with the `render` tool), and write only inside the learning folder. Everything else is refused, Bash
-  included.
-- **`TEACH_ACCESS=full`** runs tutors with `--permission-mode bypassPermissions`: a full shell that runs commands as
-  you, without asking, so a tutor can run code and check its work. Turn it on only if you're fine with that (in the
-  Docker image, the shell is inside the container).
+- **By default a tutor has no shell**, on every AI. On Claude Code, Teach answers its permission checks itself: a
+  tutor can read the learning and work folders, search and fetch from the web, use subagents and the teach tools (it
+  checks its diagrams with the `render` tool), and write only inside the learning folder. Everything else is refused,
+  Bash included. On Codex and local models, Codex's shell, exec and image tools are turned off and its sandbox is
+  read-only, so the tutor reads and writes only through the `teach` file tools, which apply the same folder rules.
+  On Gemini CLI, a policy file denies its shell and its own write tools; its read tools stay, limited by Gemini CLI
+  itself to its workspace (the work and learning folders, Teach's uploads and the tutor's folder in Teach's state),
+  so that boundary is Gemini's, not Teach's.
+- **`TEACH_ACCESS=full`** gives tutors a full shell that runs commands as you, without asking, so a tutor can run code
+  and check its work: `--permission-mode bypassPermissions` on Claude Code, `--dangerously-bypass-approvals-and-sandbox`
+  on Codex, yolo mode on Gemini CLI. Turn it on only if you're fine with that (in the Docker image, the shell is
+  inside the container).
 - Restricted isn't a sandbox against a determined prompt injection: a tutor can still fetch web pages, so anything
   in your learning folder could leave through a URL. Keep secrets out of it.
 - The page can show files under the learning and work folders and under `~/Documents`, `~/Downloads`,
   `~/Pictures` and `~/Videos` (never dotfiles), because the tutor links them in lessons. It answers only on
   localhost (or the socket); don't put it on a public address. For remote use, put the socket behind an
   authenticating proxy (Tailscale Serve plus `TEACH_TS_USER` is what it was built with).
-- Tutors run with your normal Claude Code setup (your settings, hooks, MCP servers and memory).
+- Tutors run with your normal setup for that CLI (your settings, hooks, MCP servers and memory), which can widen
+  what they may do: an MCP server you added to Claude Code, Codex or Gemini CLI is the tutor's too.
 - HTML widgets the tutor writes run sandboxed (no network, opaque origin).
 
 ## The `teach` command
@@ -151,16 +201,23 @@ teach bring                 bring /teach sessions from other Claude Code chats i
 teach update|plan|step|cards <slug> '<json>'   keep a topic current from a chat outside the app
 teach sync                  with TEACH_SYNC=git-pr
 teach serve                 run the server in this terminal (with ~/.config/teach/env loaded)
-teach setup [--demo] [--no-service] [--no-skill]   install or refresh
+teach setup [--provider claude|codex|gemini|local] [--model NAME] [--demo] [--no-service] [--no-skill] [--no-check]
+                            install or refresh
 teach help
 ```
 
 ## How it works
 
 - `server.mjs`: the HTTP server (Node built-ins only) and the page's API.
-- `lib/engine.mjs`: one `claude -p --input-format stream-json` process per topic being taught, with the `teach`
-  MCP server (`mcp.mjs`: `ask`, `update`, `plan`, `step`, `cards`, `board`, `show`, `scene`) attached; its stream
-  becomes lesson events. An idle tutor closes after 20 minutes; the next message resumes the same session.
+- `lib/engine.mjs`: one tutor process per topic being taught, with the `teach` MCP server (`mcp.mjs`: `ask`,
+  `update`, `plan`, `step`, `cards`, `board`, `show`, `scene`, and the `file_*` tools for restricted tutors outside
+  Claude Code, `lib/files.mjs`) attached; its stream becomes lesson events. An idle tutor closes after 20 minutes; the
+  next message resumes the same session.
+- `lib/providers/`: the AI services. `index.mjs` starts and checks each CLI and sets what it may do; `turns.mjs` makes
+  a one-process-per-turn CLI (Codex, Gemini) look like Claude Code's long-lived stream-json process and records its
+  transcript; `translate.mjs` turns their JSONL events into Claude Code's stream-json; `relay.mjs` sits between Codex
+  and a local model server, because Codex sends MCP tools as a Responses API "namespace" that local servers flatten,
+  and then can't route their calls back (the relay sends plain functions and puts the namespace back on the calls).
 - `lib/board.mjs`: the lesson board and its rules (what replaces what, what leaves by itself, what's in view and how
   it's arranged), a fold over the lesson's history and the learner's own board actions, so it can always be rebuilt.
 - `lib/transcript.mjs`: Claude Code transcripts → the lesson's history, and finding /teach sessions from other chats.

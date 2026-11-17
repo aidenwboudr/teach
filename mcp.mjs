@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // The `teach` MCP server: the tools a tutor session inside the Teach app uses to drive the interface.
-// Claude Code starts it over stdio (see engine.mjs); TEACH_TOPIC names the topic this session teaches.
+// The tutor's CLI starts it over stdio (Claude Code, Codex or Gemini CLI; see lib/engine.mjs and lib/providers/);
+// TEACH_TOPIC names the topic this session teaches.
 // It speaks just enough MCP (initialize, tools/list, tools/call) and has no dependencies.
 import { createInterface } from "node:readline";
 import { spawn } from "node:child_process";
@@ -14,6 +15,7 @@ import { renderSvg } from "./skill/render-svg.mjs";
 import { inside } from "./lib/platform.mjs";
 import * as review from "./lib/review.mjs";
 import * as board from "./lib/board.mjs";
+import { fileTools, callFile } from "./lib/files.mjs";
 import { CHALK, ROUTE_TTL, takeInbox, chalk, speakSeconds, toast, panel, reviewPanel, reviewGood, screenable, isLive, OFF_SCREEN } from "./lib/screen.mjs";
 
 const TOPIC = process.env.TEACH_TOPIC;
@@ -21,6 +23,8 @@ const TOPIC = process.env.TEACH_TOPIC;
 // work while the lesson is on the learner's screen (their "On my screen" switch, or a stretch the tutor started with `screen`).
 const SCREEN = process.env.TEACH_SCREEN === "1";
 const live = () => SCREEN && isLive(getTopic(TOPIC), getRuntime(TOPIC));
+// A restricted tutor on Codex or Gemini CLI reads and writes through tools here (lib/files.mjs), under this policy.
+const FILES = (() => { try { return JSON.parse(process.env.TEACH_FILES || "null"); } catch { return null; } })();
 const md = "Markdown; math as LaTeX in $…$ or $$…$$ (rendered with KaTeX)";
 const CHALK_HOME = path.dirname((() => { try { return fs.realpathSync(CHALK); } catch { return CHALK; } })());
 const SCENE_DOC = path.join(CHALK_HOME, "scene.md");
@@ -392,6 +396,7 @@ async function call(name, args, id) {
   if (SCREEN && name === "watch") return watch(args, id);
   if (SCREEN && name === "say") return say(args);
   if (SCREEN && name === "review") return reviewOnScreen(args, id);
+  if (FILES && fileTools(FILES).some((t) => t.name === name)) return callFile(FILES, name, args);
   switch (name) {
     case "ask": {
       const a = ops.normalizeAsk(args);  // validate only; the app reads the call from the stream and shows it
@@ -458,7 +463,7 @@ createInterface({ input: process.stdin }).on("line", async (line) => {
     reply({ protocolVersion: m.params?.protocolVersion || "2025-06-18", capabilities: { tools: {} }, serverInfo: { name: "teach", version: "1" } });
   } else if (m.method === "tools/list") {
     const tools = STAGE ? TOOLS : TOOLS.filter((t) => t.name !== "scene");
-    reply({ tools: SCREEN ? [...tools, ...SCREEN_TOOLS] : tools });
+    reply({ tools: [...tools, ...(SCREEN ? SCREEN_TOOLS : []), ...fileTools(FILES)] });
   } else if (m.method === "tools/call") {
     try {
       const r = await call(m.params.name, m.params.arguments || {}, m.id);

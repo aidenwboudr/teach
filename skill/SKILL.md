@@ -29,8 +29,8 @@ Two inefficiencies drive the design:
 
 Teach sessions run in the **Teach app** (`teach url` prints its address). The lesson is a board, not a chat:
 your notes, question cards with instant feedback, live scenes and figures, with math and pictures rendered; the
-plan and knowledge map in a sidebar; spaced review; and every topic on one home page. The app starts a Claude Code session per topic and tells it so in
-the system prompt.
+plan and knowledge map in a sidebar; spaced review; and every topic on one home page. The app starts a session of its AI agent CLI per topic (Claude Code by default; Codex,
+Gemini CLI or a local model if it's set up that way) and tells it so in its instructions.
 
 **Invoked anywhere else** (another chat, a terminal), hand the topic to the app instead of teaching in chat:
 

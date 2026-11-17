@@ -1,10 +1,13 @@
 {
   "name": "teach-tutor",
-  "version": "1.0.0",
-  "description": "A one-to-one tutor on top of Claude Code: probes what you know, plans a fact-checked path, teaches one step at a time on a lesson board, and keeps spaced review.",
+  "version": "1.1.0",
+  "description": "A one-to-one tutor on your own AI agent (Claude Code, Codex, Gemini CLI or a local model): probes what you know, plans a fact-checked path, teaches one step at a time on a lesson board, and keeps spaced review.",
   "keywords": [
     "claude-code",
     "claude",
+    "codex",
+    "gemini-cli",
+    "ollama",
     "tutor",
     "learning",
     "education",

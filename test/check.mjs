@@ -5,7 +5,7 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const APP = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const dirs = { ".": /\.mjs$/, lib: /\.mjs$/, test: /\.mjs$/, skill: /\.mjs$/, public: /\.js$/ };
+const dirs = { ".": /\.mjs$/, lib: /\.mjs$/, "lib/providers": /\.mjs$/, test: /\.mjs$/, skill: /\.mjs$/, public: /\.js$/ };
 let n = 0;
 for (const [d, re] of Object.entries(dirs)) {
   for (const f of fs.readdirSync(path.join(APP, d)).filter((x) => re.test(x)).sort()) {
