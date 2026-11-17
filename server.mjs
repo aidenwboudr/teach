@@ -20,6 +20,7 @@ import * as screen from "./lib/screen.mjs";
 import * as stage from "./lib/stage.mjs";
 import * as board from "./lib/board.mjs";
 import * as actions from "./lib/actions.mjs";
+import { command } from "./lib/platform.mjs";
 
 process.removeAllListeners("warning");            // node:sqlite's ExperimentalWarning, once per process
 
@@ -165,8 +166,9 @@ function pauseAction(slug, kind) {
   pump(slug);
 }
 
-const run = (cmd, args) => new Promise((resolve) => execFile(cmd, args, { timeout: 60e3 }, (err, stdout, stderr) =>
-  resolve({ ok: !err, out: String(stdout || "").trim(), err: String(stderr || (err && err.message) || "").trim() })));
+// (through platform.mjs's command(): a node script or an npm shim runs on Windows too)
+const run = (cmd, args) => new Promise((resolve) => { const c = command(cmd, args); execFile(c.file, c.args, { timeout: 60e3, windowsHide: true }, (err, stdout, stderr) =>
+  resolve({ ok: !err, out: String(stdout || "").trim(), err: String(stderr || (err && err.message) || "").trim() })); });
 
 // A review (or next) session: on their calendar, and on the topic, where the lesson and home show it.
 async function scheduleSession(slug, v, at) {

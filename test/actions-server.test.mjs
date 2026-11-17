@@ -8,7 +8,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const APP = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "teach-actions-server-"));
@@ -27,8 +27,8 @@ const CLAUDE = path.join(tmp, "claude"), HEARD = path.join(tmp, "heard.log"), ST
 fs.writeFileSync(CLAUDE, `#!${process.execPath}
 const fs = require("fs"), path = require("path");
 const out = (m) => process.stdout.write(JSON.stringify(m) + "\\n");
-const ops = import(${JSON.stringify(path.join(APP, "lib/ops.mjs"))});
-const store = import(${JSON.stringify(path.join(APP, "lib/store.mjs"))});
+const ops = import(${JSON.stringify(pathToFileURL(path.join(APP, "lib/ops.mjs")).href)});
+const store = import(${JSON.stringify(pathToFileURL(path.join(APP, "lib/store.mjs")).href)});
 let n = 0, waiting = false;
 const end = () => out({ type: "result", result: "done", is_error: false });
 require("readline").createInterface({ input: process.stdin }).on("line", async (line) => {

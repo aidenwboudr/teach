@@ -80,10 +80,10 @@ test("render: the SVG's size, and a browser to render with on each platform", ()
   assert.equal(findChrome({ platform: "linux", env: { PATH: "/usr/bin:/opt/s" }, exists: files(["/usr/bin/google-chrome", "/opt/s/chrome-headless-shell"]) }), "/opt/s/chrome-headless-shell");
   assert.ok(!chromeArgs("/opt/s/chrome-headless-shell").includes("--headless=new"));
   // …and Playwright's download of it, the newest build
-  const pw = "/h/.cache/ms-playwright";
+  // (paths through path.join, as findChrome builds them: backslashes when the tests run on Windows)
+  const pw = path.join("/h", ".cache/ms-playwright"), shell = (b) => path.join(pw, b, "chrome-headless-shell-linux64", "chrome-headless-shell");
   assert.equal(findChrome({ platform: "linux", env: { PATH: "/usr/bin", HOME: "/h" }, list: () => ["chromium-1243", "chromium_headless_shell-1223", "chromium_headless_shell-1243"],
-    exists: files(["/usr/bin/google-chrome", `${pw}/chromium_headless_shell-1223/chrome-headless-shell-linux64/chrome-headless-shell`, `${pw}/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell`]) }),
-    `${pw}/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell`);
+    exists: files(["/usr/bin/google-chrome", shell("chromium_headless_shell-1223"), shell("chromium_headless_shell-1243")]) }), shell("chromium_headless_shell-1243"));
   assert.ok(chromeArgs("/usr/bin/google-chrome").includes("--headless=new"));
 });
 
