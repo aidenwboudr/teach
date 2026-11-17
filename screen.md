@@ -81,7 +81,7 @@ While the lesson is on the board, `say`, `watch`, `review` and chalk's tools ref
   in the same message as `ask` ("Quick one before you run it: what sign does delta h2 get?"), then end
   your turn. A `task` question (Done / Stuck buttons on the card) suits "try it, tell me when it works".
 - **Continuing a topic:** start with `review` (two to four cards) before the next step.
-- Keep the plan current with `step`, add review `cards`, and keep `next` up to date, as always.
+- Keep the plan current with `step` and keep `next` up to date, as always (review cards only when they ask for flashcards).
 
 ## Talking
 

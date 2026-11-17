@@ -22,8 +22,24 @@ export function svgSize(text) {
   return [Math.max(1, Math.round(w)), Math.max(1, Math.round(h))];
 }
 
-export function findChrome({ platform = process.platform, env = process.env, exists = (f) => fs.existsSync(f) } = {}) {
+// chrome-headless-shell (Chrome's own build for exactly this: screenshots, PDFs, DOM dumps) comes first when it's on
+// PATH: a full Chrome's command-line headless mode can start, load the page and never finish (Chromium 1223 on a Linux
+// server did, 2026-11), while the shell, from the same release, doesn't.
+// Playwright's download of it counts too (~/.cache/ms-playwright on Linux, ~/Library/Caches/ms-playwright on macOS), newest first.
+export function findChrome({ platform = process.platform, env = process.env, exists = (f) => fs.existsSync(f), list = (d) => { try { return fs.readdirSync(d); } catch { return []; } } } = {}) {
   if (env.TEACH_CHROME) return env.TEACH_CHROME;
+  const shell = which("chrome-headless-shell", { platform, env, exists });
+  if (shell) return shell;
+  const home = env.HOME || env.USERPROFILE || os.homedir();
+  const cache = env.PLAYWRIGHT_BROWSERS_PATH || (platform === "darwin" ? path.join(home, "Library/Caches/ms-playwright") : platform === "win32" ? path.join(env.LOCALAPPDATA || home, "ms-playwright") : path.join(home, ".cache/ms-playwright"));
+  const sub = { linux: ["chrome-headless-shell-linux64", "chrome-headless-shell"], darwin: ["chrome-headless-shell-mac-arm64", "chrome-headless-shell"], win32: ["chrome-headless-shell-win64", "chrome-headless-shell.exe"] }[platform];
+  if (sub) {
+    const builds = list(cache).filter((d) => /^chromium_headless_shell-\d+$/.test(d)).sort((a, b) => Number(b.split("-")[1]) - Number(a.split("-")[1]));
+    for (const b of builds) {
+      const alt = platform === "darwin" ? [sub, ["chrome-headless-shell-mac-x64", "chrome-headless-shell"]] : [sub];
+      for (const [dir, exe] of alt) { const f = path.join(cache, b, dir, exe); if (exists(f)) return f; }
+    }
+  }
   if (platform === "darwin") {
     return ["Google Chrome", "Chromium", "Microsoft Edge", "Brave Browser"].map((a) => `/Applications/${a}.app/Contents/MacOS/${a}`).find(exists)
       || ["google-chrome", "chromium"].map((c) => which(c, { platform, env, exists })).find(Boolean) || null;
@@ -37,6 +53,10 @@ export function findChrome({ platform = process.platform, env = process.env, exi
   return ["google-chrome", "google-chrome-stable", "chromium", "chromium-browser"].map((c) => which(c, { platform, env, exists })).find(Boolean) || null;
 }
 
+// The flags every headless run starts with. The headless shell is headless already (it rejects --headless=new's mode).
+export const isHeadlessShell = (bin) => /chrome-headless-shell(\.exe)?$/i.test(path.basename(String(bin || "")));
+export const chromeArgs = (bin) => [...(isHeadlessShell(bin) ? [] : ["--headless=new"]), "--no-sandbox", "--disable-gpu", "--hide-scrollbars", "--allow-file-access-from-files"];
+
 export async function renderSvg(input, output) {
   const src = fs.realpathSync(input);
   const out = path.resolve(output || src.replace(/\.svg$/i, "") + ".png");
@@ -48,7 +68,7 @@ export async function renderSvg(input, output) {
   fs.writeFileSync(page, `<html><body style="margin:0;background:#fff"><img src="${pathToFileURL(src).href}" style="width:${w}px;height:${h}px;display:block"></body></html>`);
   const profile = fs.mkdtempSync(path.join(os.tmpdir(), "teach-render-"));   // its own profile: works next to an open browser
   try {
-    await new Promise((resolve, reject) => execFile(chrome, ["--headless=new", "--no-sandbox", "--disable-gpu", "--hide-scrollbars", "--allow-file-access-from-files",
+    await new Promise((resolve, reject) => execFile(chrome, [...chromeArgs(chrome),
       `--user-data-dir=${profile}`, "--force-device-scale-factor=2", `--window-size=${w},${h}`, `--screenshot=${out}`, pathToFileURL(page).href],
       { timeout: 60e3, windowsHide: true }, (err) => (err && !fs.existsSync(out) ? reject(new Error(`the browser couldn't render it: ${err.message}`)) : resolve())));
   } finally {

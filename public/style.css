@@ -542,7 +542,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--blue); }
   font: 400 13px/1.55 var(--font-mono); overflow-x: auto;
 }
 .prose pre code { font-size: inherit; color: var(--ink); background: none; padding: 0; border-radius: 0; }
-.prose blockquote { margin: 1em 0; padding-left: 16px; border-left: 2px solid var(--edge-strong); color: var(--ink-2); }
+.prose blockquote { margin: 1em 0; padding: 8px 14px; background: var(--ground); border-radius: var(--r-sm); color: var(--ink-2); }   /* no left stripe */
 .prose hr { border: 0; border-top: 1px solid var(--edge); margin: 1.5em 0; }
 .prose table { width: 100%; border-collapse: collapse; margin: 1em 0; font: 400 15px/1.4 var(--font-ui); }
 .prose th { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--edge-strong); font-weight: 600; font-size: 13px; color: var(--ink-2); }

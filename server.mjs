@@ -7,7 +7,7 @@ import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import { execFile } from "node:child_process";
-import { APP, LEARNING, TOPICS, PROFILE, STATE, WORK, PORT, HOST, SOCKET, HOME, PROJECTS, SYNC, CAPTURE_CMD, OPEN_CMD,
+import { APP, LEARNING, TOPICS, PROFILE, STATE, WORK, PORT, HOST, SOCKET, HOME, PROJECTS, SYNC, CAPTURE_CMD, OPEN_CMD, CALENDAR_CMD,
   LEARNER, Learner, splitCmd, projectDir, URL_PUBLIC } from "./lib/paths.mjs";
 import * as store from "./lib/store.mjs";
 import * as ops from "./lib/ops.mjs";
@@ -19,6 +19,8 @@ import { sync, lastSync } from "./lib/sync.mjs";
 import * as screen from "./lib/screen.mjs";
 import * as stage from "./lib/stage.mjs";
 import * as board from "./lib/board.mjs";
+import * as actions from "./lib/actions.mjs";
+import { command } from "./lib/platform.mjs";
 
 process.removeAllListeners("warning");            // node:sqlite's ExperimentalWarning, once per process
 
@@ -64,6 +66,8 @@ const afterRestart = new Map();   // slug → note to start the next process wit
 const afterTurn = new Map();      // slug → note for a new turn once this one ends (the mode changed mid-turn)
 engine.onTurnEnd = (slug, l) => {
   if (l.quiet && store.getTopic(slug)?.settings.voice !== false) noteFor(slug, store.getRuntime(slug).live ? QUIET_STRETCH : QUIET_NOTE);
+  if (jobs.has(slug)) jobEnded(slug);
+  if (!jobs.has(slug) && jobQueue.get(slug)?.length) return pump(slug);   // the next action the learner asked for (a close waits for them)
   if (closeAfter.delete(slug)) { afterTurn.delete(slug); return engine.close(slug); }
   if (afterTurn.has(slug)) { const note = afterTurn.get(slug); afterTurn.delete(slug); return turn(slug, [{ type: "text", text: note }]); }
   // words that reached the inbox just as a watch ended: nobody picked them up, so they start the next turn
@@ -108,6 +112,126 @@ function restartWith(slug, note) {
   if (!st.busy) return engine.close(slug);
   closeAfter.add(slug);
   if (st.watching !== null) engine.interrupt(slug);   // don't sit out a watch that no longer matters
+}
+
+// ---------- end-of-session actions (lib/actions.mjs) ----------
+
+// The learner clicks an action in the grid; nothing is made before that. A made-by-the-tutor action is a turn of the
+// topic's tutor with the action's brief, one at a time per topic: queued while a lesson turn runs, then started. Pause
+// interrupts that turn (the model really stops; a later resume continues the same session from what it had written),
+// and a queued one just leaves the queue. A turn that ends without the tutor delivering marks it failed, except a
+// practice test waiting on the learner's answers. A scheduled session is the app's alone: a calendar entry (when
+// TEACH_CALENDAR_CMD is set) and an .ics, no model.
+const jobs = new Map();       // slug → { kind, resume } running now (or a practice test waiting on answers)
+const jobQueue = new Map();   // slug → [{ kind, resume }]
+const ctxOf = (slug) => ({ deck: store.getDeck(slug).items.length, calendar: !!CALENDAR_CMD });
+const actionsView = (slug) => ({ ...actions.tiles(store.getTopic(slug), ctxOf(slug)), running: jobs.get(slug)?.kind || null, calendar: !!CALENDAR_CMD, open: !!OPEN_CMD });
+const pendingAskOn = (slug) => boardOf(slug).blocks.some((x) => x.kind === "ask" && x.status === "pending");
+
+function setOut(slug, kind, patch) { ops.setOutput(slug, kind, patch); emit(slug, { t: "actions" }); emit(slug, { t: "topic" }); }
+
+function enqueue(slug, job) {
+  const q = (jobQueue.get(slug) || []).filter((x) => x.kind !== job.kind);
+  jobQueue.set(slug, [...q, job]);
+  pump(slug);
+}
+
+function pump(slug) {
+  if (jobs.has(slug) || engine.status(slug).busy) return;   // (a turn running now: its end pumps)
+  const q = jobQueue.get(slug) || [];
+  const job = q.shift();
+  if (!job) return;
+  const t = store.getTopic(slug), o = t.outputs?.[job.kind];
+  if (!o || o.state !== "queued") return pump(slug);
+  jobs.set(slug, job);
+  setOut(slug, job.kind, { state: "working", progress: job.resume ? "Picking up where it stopped" : "Starting", error: "" });
+  turn(slug, [{ type: "text", text: actions.brief(job.kind, t, o.settings, { dir: store.topicDir(slug), learner: Learner, resume: job.resume }) }], { action: job.kind });
+}
+
+function jobEnded(slug) {
+  const job = jobs.get(slug), o = store.getTopic(slug).outputs?.[job.kind];
+  if (o?.state === "working" && job.kind === "practice" && pendingAskOn(slug)) { setOut(slug, job.kind, { progress: "Waiting on your answers" }); return; }
+  jobs.delete(slug);
+  if (o?.state === "working") setOut(slug, job.kind, { state: "failed", error: "The tutor stopped before it was done.", progress: "" });
+}
+
+function pauseAction(slug, kind) {
+  const q = jobQueue.get(slug) || [];
+  jobQueue.set(slug, q.filter((x) => x.kind !== kind));
+  if (jobs.get(slug)?.kind === kind) {
+    jobs.delete(slug);
+    if (engine.status(slug).busy) engine.interrupt(slug);   // stops the model's turn; its end finds it paused
+  }
+  setOut(slug, kind, { state: "paused", progress: "" });
+  pump(slug);
+}
+
+// (through platform.mjs's command(): a node script or an npm shim runs on Windows too)
+const run = (cmd, args) => new Promise((resolve) => { const c = command(cmd, args); execFile(c.file, c.args, { timeout: 60e3, windowsHide: true }, (err, stdout, stderr) =>
+  resolve({ ok: !err, out: String(stdout || "").trim(), err: String(stderr || (err && err.message) || "").trim() })); });
+
+// A review (or next) session: on their calendar, and on the topic, where the lesson and home show it.
+async function scheduleSession(slug, v, at) {
+  const t = store.getTopic(slug);
+  const start = Date.parse(at) || Date.parse(v.when);
+  if (!Number.isFinite(start)) throw Object.assign(new Error("when?"), { code: 400 });
+  const title = actions.sessionTitle(t, v), link = `${URL_PUBLIC}/t/${slug}`;
+  const note = `${{ review: "A review of what this topic covered", continue: "The next session: carry on with the plan", warmup: "Mixed practice before the exam" }[v.mode]}, about ${v.minutes} minutes. Open it in Teach: ${link}`;
+  let calendar = null;
+  if (v.calendar && CALENDAR_CMD) {
+    const [cmd, ...pre] = splitCmd(CALENDAR_CMD);
+    const r = await run(cmd, [...pre, ...actions.calendarArgs({ title, local: v.when, minutes: Number(v.minutes), note, remind: Number(v.remind) })]);
+    calendar = { ok: r.ok, text: (r.ok ? r.out : r.err).split("\n").filter(Boolean).slice(-2).join(" ").slice(0, 240) };
+  }
+  const session = { at: new Date(start).toISOString(), local: v.when, minutes: Number(v.minutes), mode: v.mode, remind: Number(v.remind), title, calendar };
+  setOut(slug, "session", { state: calendar && !calendar.ok ? "failed" : "ready", settings: v, session, files: [], summary: actions.whenText(v.when),
+    error: calendar && !calendar.ok ? `Couldn't add it to your calendar: ${calendar.text || "the calendar command failed"}` : "", at: store.now() });
+}
+
+const SESSION_KICKOFF = {
+  review: "a review of what this topic covered: start with 3-4 questions on the shakiest steps, re-teach what slipped, and log how it went",
+  continue: "the next session: say in one line where we are, a short review of the last step, then the next step of the plan",
+  warmup: "an exam warm-up: a short timed mixed set like the exam's, then go over what it shows",
+};
+
+async function actionOp(slug, b) {
+  const t = store.getTopic(slug), kind = String(b.kind || "");
+  if (!actions.ACTIONS[kind]) throw Object.assign(new Error(`kind must be one of ${actions.KINDS.join(", ")}`), { code: 400 });
+  const o = t.outputs?.[kind];
+  const settings = () => actions.normalizeSettings(kind, t, { ...(o?.settings || {}), ...(b.settings || {}) }, ctxOf(slug));
+  switch (b.op) {
+    case "save": setOut(slug, kind, { settings: settings() }); return;
+    case "start": {
+      if (jobs.get(slug)?.kind === kind || o?.state === "queued") return;
+      const v = settings();
+      if (kind === "session") return scheduleSession(slug, v, b.at);
+      setOut(slug, kind, { settings: v, state: "queued", files: [], summary: "", error: "", progress: engine.status(slug).busy ? "Waiting for the tutor to finish its turn" : "" });
+      return enqueue(slug, { kind, resume: false });
+    }
+    case "pause": if (["working", "queued"].includes(o?.state)) pauseAction(slug, kind); return;
+    case "resume":
+      if (o?.state !== "paused") return;
+      setOut(slug, kind, { state: "queued", progress: "" });
+      return enqueue(slug, { kind, resume: true });
+    case "reset":
+      pauseAction(slug, kind);
+      setOut(slug, kind, { state: "idle", files: [], summary: "", error: "", progress: "", session: undefined });
+      return;
+    case "begin": {   // start a scheduled session now
+      const s = o?.session;
+      if (!s) throw Object.assign(new Error("no session scheduled"), { code: 409 });
+      turn(slug, [{ type: "text", text: `[Teach app] scheduled session\n${Learner} is starting the session they scheduled (${s.minutes} min): ${SESSION_KICKOFF[s.mode] || SESSION_KICKOFF.review}. Keep it to about ${s.minutes} minutes.` }], {});
+      setOut(slug, "session", { state: "idle", session: undefined, summary: "" });
+      return;
+    }
+    default: throw Object.assign(new Error("op must be save, start, pause, resume, reset or begin"), { code: 400 });
+  }
+}
+
+// A restart stops every tutor: what was being made is paused (a click resumes it from what it had written).
+for (const slug of store.listSlugs()) {
+  const outs = store.getTopic(slug)?.outputs || {};
+  for (const [kind, o] of Object.entries(outs)) if (["working", "queued"].includes(o.state)) ops.setOutput(slug, kind, { state: "paused", progress: "Teach restarted" });
 }
 
 // ---------- the lesson board ----------
@@ -390,6 +514,12 @@ function summary(t, due) {
 function kickoff(t, how, extra = {}) {
   const dir = store.topicDir(t.slug);
   const hasApp = t.sessions.some((s) => s.via === "app");
+  // an end-of-session action: a session that carries on needs nothing; a fresh one reads up first, then does only that
+  if (extra.action) {
+    if (how.mode === "resume" || (how.mode === "fork" && hasApp)) return null;
+    return `[Teach app] context\nThis is a fresh session for this topic (the earlier one ${how.mode === "fork" || !hasApp ? "ran outside the app" : "can't be resumed here"}). Read ${dir}/topic.json, ${dir}/log.md and ${PROFILE} first. ` +
+      `Then do only what the next message asks: don't start teaching or reviewing.`;
+  }
   if (extra.start) {
     return `[Teach app] start\nNew topic. Folder: ${dir} (topic.json exists; write log.md there).` +
       `${t.why ? ` Why: ${t.why}.` : ""}${t.deadline ? ` Deadline: ${t.deadline}.` : ""}` +
@@ -430,13 +560,14 @@ function turn(slug, content = [], opts = {}) {
   }
   const done = boardNotes.get(slug);
   const said = content.map((c) => c.text || "").join("\n");
-  const starting = !engine.isAlive(slug) && t.settings.screen && !said.startsWith("[Teach app] screen") ? [SCREEN_STATE] : [];
+  // (an end-of-session action is made in Teach, not on their screen: no "run it with the screen guide's loop")
+  const starting = !engine.isAlive(slug) && t.settings.screen && !opts.action && !said.startsWith("[Teach app] screen") ? [SCREEN_STATE] : [];
   const pre = [...starting, ...(live ? notes.get(slug) || [] : []), ...(done?.length ? [`[Teach app] board\n${done.join("\n")}`] : [])].map((text) => ({ type: "text", text }));
   notes.delete(slug); boardNotes.delete(slug);
   if (engine.isAlive(slug)) return engine.send(slug, [...pre, ...(content.length ? content : [{ type: "text", text: `[Teach app] back\n${Learner} is here. Continue.` }])]);
   const how = engine.plan(slug, opts);
   const note = kickoff(t, how, opts) || (content.length ? null : `[Teach app] back\n${Learner} is back${t.next ? ` (resume note: ${t.next})` : ""}. Say where we are in one line, then continue.`);
-  if (t.status === "paused") store.mutateTopic(slug, (x) => { x.status = "active"; });
+  if (t.status === "paused" && !opts.action) store.mutateTopic(slug, (x) => { x.status = "active"; });   // (making something isn't resuming the lesson)
   return engine.send(slug, [...(note ? [{ type: "text", text: note }] : []), ...pre, ...content], { how });
 }
 
@@ -723,6 +854,14 @@ async function route(req, res) {
     if (m === "GET" && action === "board") return json(res, 200, { board: boardView(slug) });
     if (m === "GET" && (action === "log" || action === "sheet")) return json(res, 200, { text: store.readText(path.join(store.topicDir(slug), `${action}.md`)) || "" });
     if (m === "GET" && action === "deck") return json(res, 200, store.getDeck(slug));
+    if (m === "GET" && action === "actions") return json(res, 200, actionsView(slug));
+    if (m === "GET" && action === "session-ics") {
+      const s = t.outputs?.session?.session;
+      if (!s) return json(res, 404, { error: "no session scheduled" });
+      res.writeHead(200, { "Content-Type": "text/calendar; charset=utf-8", "Content-Disposition": `attachment; filename="${slug}-session.ics"`, "Cache-Control": "no-store" });
+      return res.end(actions.ics({ uid: `${slug}-${Date.parse(s.at)}@teach`, title: s.title, start: s.at, minutes: s.minutes, remind: s.remind, url: `${URL_PUBLIC}/t/${slug}`,
+        note: `Open it in Teach: ${URL_PUBLIC}/t/${slug}` }));
+    }
 
     const b = m === "POST" ? JSON.parse((await readBody(req)).toString() || "{}") : {};
     if (m !== "POST") return json(res, 405, { error: "method" });
@@ -781,12 +920,18 @@ async function route(req, res) {
       case "typing":   // the page: a key in the composer or a question card (draft: unsent text there), or sent (it went)
         if (b.sent) typing.delete(slug); else typing.set(slug, { at: Date.now(), draft: !!b.draft });
         return ok(res);
-      case "stop": engine.interrupt(slug); if (onScreenNow(t)) screen.hush(); return ok(res);
+      case "actions": {
+        try { await actionOp(slug, b); return ok(res, { view: actionsView(slug) }); }
+        catch (e) { return json(res, e.code || 400, { error: e.message }); }
+      }
+      case "stop": if (jobs.has(slug) && store.getTopic(slug).outputs?.[jobs.get(slug).kind]?.state === "working") { pauseAction(slug, jobs.get(slug).kind); return ok(res); }   // Esc while making something: a pause
+        engine.interrupt(slug); if (onScreenNow(t)) screen.hush(); return ok(res);
       case "pause": case "done": {
         if (onScreenNow(t)) screen.unlink(slug, onLink);
+        const pick = `call update with \`suggest\`: the end-of-session actions that fit this topic best, best first, each with a one-line why${t.why === "exam" ? ", and with \`allowance\` if you know what the exam lets them bring" : ""}. Don't make any of them: ${LEARNER} sees them as buttons and nothing is made until they click one.`;
         const note = action === "pause"
-          ? `[Teach app] pause\n${Learner} is pausing here. Bring log.md up to date (where we stopped, any pending check), call update with \`next\` set to the exact resume point and status "paused", and reply with one short line. Don't start anything new.`
-          : `[Teach app] close\n${Learner} marked this topic done. Run Phase 4: recap in log.md, update PROFILE.md, make sure deck.json (and sheet.md for exam topics) hold what's needed for review, then call update with status "done" and a \`next\` that says what to review.${SYNC === "git-pr" ? " The app handles git." : ""} Reply with a short recap.`;
+          ? `[Teach app] pause\n${Learner} is pausing here. Bring log.md up to date (where we stopped, any pending check), ${pick} Then call update with \`next\` set to the exact resume point and status "paused", and reply with one short line. Don't start anything new.`
+          : `[Teach app] close\n${Learner} marked this topic done. Run Phase 4: recap in log.md, update PROFILE.md, ${pick} Then call update with status "done" and a \`next\` that says what to come back to.${SYNC === "git-pr" ? " The app handles git." : ""} Reply with a short recap.`;
         if (engine.isAlive(slug) || t.sessions.length) { closeAfter.add(slug); turn(slug, [{ type: "text", text: note }], {}); }
         else store.mutateTopic(slug, (x) => { x.status = action === "pause" ? "paused" : "done"; });
         return ok(res);
