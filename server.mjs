@@ -54,11 +54,16 @@ function homeChanged() {
 }
 
 const engine = new Engine(emit);
+// Is the lesson on the learner's screen right now: their "On my screen" switch, or a stretch the tutor started (`screen`).
+const onScreenNow = (t) => screen.isLive(t, t && store.getRuntime(t.slug));
+engine.isLive = (slug) => onScreenNow(store.getTopic(slug));
 const closeAfter = new Set();
 const afterRestart = new Map();   // slug → note to start the next process with (screen mode switched)
+const afterTurn = new Map();      // slug → note for a new turn once this one ends (the mode changed mid-turn)
 engine.onTurnEnd = (slug, l) => {
-  if (l.quiet && store.getTopic(slug)?.settings.voice !== false) noteFor(slug, QUIET_NOTE);
-  if (closeAfter.delete(slug)) return engine.close(slug);
+  if (l.quiet && store.getTopic(slug)?.settings.voice !== false) noteFor(slug, store.getRuntime(slug).live ? QUIET_STRETCH : QUIET_NOTE);
+  if (closeAfter.delete(slug)) { afterTurn.delete(slug); return engine.close(slug); }
+  if (afterTurn.has(slug)) { const note = afterTurn.get(slug); afterTurn.delete(slug); return turn(slug, [{ type: "text", text: note }]); }
   // words that reached the inbox just as a watch ended: nobody picked them up, so they start the next turn
   const said = screen.takeInbox(slug);
   if (said.length) turn(slug, [{ type: "text", text: said.join("\n\n") }], { user: { text: said.filter((x) => !x.startsWith("[")).join("\n\n") },
@@ -66,6 +71,8 @@ engine.onTurnEnd = (slug, l) => {
 };
 engine.onExit = (slug) => {
   scheduleSync("session ended");
+  afterTurn.delete(slug);   // a mode note for a turn that never came: the next process starts with the mode as it is
+  if (store.getRuntime(slug).live) endLive(slug, "ended");   // a stretch on the screen ends with its tutor
   if (!afterRestart.has(slug)) return;
   const note = afterRestart.get(slug);
   afterRestart.delete(slug);
@@ -76,10 +83,22 @@ engine.onExit = (slug) => {
 const notes = new Map();   // slug → [text]
 const noteFor = (slug, text) => { const n = notes.get(slug) || []; if (!n.includes(text)) n.push(text); notes.set(slug, n); };
 const QUIET_NOTE = `[Teach app] voice\nScreen mode is on and ${LEARNER} is at the computer, but your last reply reached only the Teach window: nothing was said out loud. Keep the lesson on their screen: answer with say (and a mark when it helps), then carry on with the screen guide's loop. Only ${LEARNER} turns the voice or screen mode off; don't go quiet on your own, even if something about the voice looked wrong.`;
+// (a stretch the tutor started itself: it may end it, so the note says how instead of "only they switch it off")
+const QUIET_STRETCH = `[Teach app] voice\nThe lesson is on ${LEARNER}'s screen (you moved it there), but your last reply reached only the Teach window: nothing was said out loud. While it's on their screen, answer with say (and a mark when it helps). If the screen part is done, say one wrap-up line, screen_clear, then call screen with to: "board".`;
 const BACK_NOTE = "[Teach app] voice\nThe learner's screen is reachable again (Super+/ reaches you). If you had moved to text because say, watch or screen_look failed, go back to their screen now.";
 
-// The tools a tutor has are fixed when its process starts, so switching screen mode restarts it (same Claude
-// session, resumed) and hands it a note about the switch.
+// The learner switched screen mode. A tutor that has the screen tools (chalk is installed) only needs telling: now
+// if it's idle, when its turn ends if it's busy (a watch that no longer matters stops at once). One started without
+// them (chalk arrived since) restarts (same Claude session, resumed) with the note, since tools are fixed at start.
+function switchMode(slug, note) {
+  if (!engine.isAlive(slug) || !engine.get(slug).screen) return restartWith(slug, note);
+  if (!note) return;
+  const st = engine.status(slug);
+  if (!st.busy) return turn(slug, [{ type: "text", text: note }]);
+  afterTurn.set(slug, note);
+  if (st.watching !== null) engine.interrupt(slug);
+}
+
 function restartWith(slug, note) {
   if (!engine.isAlive(slug)) return note && store.getTopic(slug).sessions.length ? turn(slug, [{ type: "text", text: note }]) : undefined;
   afterRestart.set(slug, note);
@@ -139,7 +158,7 @@ const ANSWERED_UP_MS = 45e3;
 
 function toScreen(slug, ev) {
   const t = store.getTopic(slug);
-  if (!t?.settings.screen || onScreen.has(ev.id) || !screen.screenable(ev.ask)) return;
+  if (!onScreenNow(t) || onScreen.has(ev.id) || !screen.screenable(ev.ask)) return;
   for (const [tag, timer] of shown) { clearTimeout(timer); screen.chalk(["remove", tag]); shown.delete(tag); }   // the last card's done
   const p = screen.panel(screen.askPanel(t, ev.id, ev.ask));
   onScreen.set(ev.id, { slug, cancel: p.cancel });
@@ -199,7 +218,7 @@ function predictOnStage(slug, id, step, answer) {
 
 // A screen lesson touched this recently is live: Super+/ keeps reaching its tutor (lib/screen.mjs, "link").
 const LIVE_MS = 2 * 3600e3;
-const screenLive = (t) => !!t?.settings.screen && t.status === "active" && Date.now() - lastActive(t) < LIVE_MS;
+const screenLive = (t) => onScreenNow(t) && t.status === "active" && Date.now() - lastActive(t) < LIVE_MS;
 
 // (every turn and page refresh asks; a screen that can't be reached is retried at most once a minute, one at a time)
 let linkInFlight = false;
@@ -214,7 +233,7 @@ function touchLink(slug) {
 // isn't on it (the server restarted, or the computer was away when it was asked) goes back up.
 let linkWasOk = null;
 function onLink(l) {
-  if (l.ok && l.slug && linkWasOk === false) noteFor(l.slug, BACK_NOTE);
+  if (l.ok && l.slug && linkWasOk === false && onScreenNow(store.getTopic(l.slug))) noteFor(l.slug, BACK_NOTE);
   linkWasOk = l.ok;
   const data = `data: ${JSON.stringify({ t: "link", link: l })}\n\n`;
   for (const c of clients) c.res.write(data);
@@ -231,6 +250,8 @@ function linkBeat() {
   const next = store.listSlugs().map((s) => store.getTopic(s)).filter(screenLive).sort((a, b) => lastActive(b) - lastActive(a))[0];
   if (next) screen.linkTo(next.slug, next.title, onLink);
 }
+// A stretch on the screen belongs to the tutor that started it; a server that just started has none running.
+for (const slug of store.listSlugs()) if (store.getRuntime(slug).live) store.mutateRuntime(slug, (r) => { delete r.live; });
 setInterval(linkBeat, screen.LINK_BEAT).unref();
 setTimeout(linkBeat, 3000).unref();   // after a restart: pick the live lesson back up
 
@@ -255,7 +276,61 @@ function answerSet(slug, id, answers, via) {
 }
 
 const SCREEN_ON = `[Teach app] screen on\n${Learner} switched this lesson onto their screen. You now have say, watch, screen_look, screen_draw and screen_clear, and the screen-mode guide in your system prompt. Look at the screen, say out loud in one sentence what you'll do there, and carry on from where the lesson is.`;
-const SCREEN_OFF = `[Teach app] screen off\n${Learner} switched the lesson back to the Teach window: the screen tools are gone. Carry on here in text from where you were.`;
+const SCREEN_OFF = `[Teach app] screen off\n${Learner} switched the lesson back to the Teach window: the screen tools are off. Carry on here in text from where you were.`;
+const SCREEN_STAY = `[Teach app] screen off\n${Learner} pressed "Stay on the board": the lesson is back on the Teach board, and stays there for this topic (the screen tool won't move it again). Carry on here from where you were.`;
+// A tutor starting up on a lesson whose "On my screen" switch is on (its system prompt says how both modes work).
+const SCREEN_STATE = `[Teach app] screen on\n${Learner}'s "On my screen" switch is on: this lesson happens on their screen. Run it with the screen guide's loop.`;
+
+// ---------- the tutor moves a step onto the screen (the `screen` tool) ----------
+
+// The learner typing in the Teach window (the page reports keys in the composer and in a question card): the tutor
+// doesn't move the lesson to the screen while they're mid-sentence there (lib/screen.mjs liveDecision).
+const typing = new Map();   // slug → { at, draft }
+
+async function moveLesson(slug, { to, why = "", stay = false, by = "tutor" }) {
+  const state = () => { const t = store.getTopic(slug); return { to, by, installed: screen.installed(), settings: t.settings, live: store.getRuntime(slug).live || null, typing: typing.get(slug), who: LEARNER }; };
+  let d = screen.liveDecision(state());
+  if (d.probe) d = screen.liveDecision({ ...state(), probe: await screen.ready() });   // (state again: the probe can take seconds)
+  if (stay && to === "board" && d.ok) store.mutateTopic(slug, (x) => { x.settings.autoScreen = false; });   // (not when it was refused)
+  if (d.change === "live") startLive(slug, why);
+  if (d.change === "board") endLive(slug, by);
+  if (stay && d.ok) emit(slug, { t: "topic" });
+  let text = d.reason;
+  if (d.change === "live") {
+    text = `Live on ${LEARNER}'s screen now. say, watch, review, screen_look, screen_draw and screen_clear work, and question sets pop up on their screen. ` +
+      `Follow the screen guide's loop: screen_look first, then say what to do with its mark in the same message. ` +
+      `When the part that needs their screen is done: one spoken wrap-up line, screen_clear, then screen with to: "board".`;
+  } else if (d.change === "board" || (stay && d.ok)) {
+    text = `Back on the Teach board: the screen tools are off. Carry on here (the step's note on the board, short replies).` +
+      (stay ? ` ${Learner} asked to stay on the board for this topic: don't move it to their screen again.` : "");
+  }
+  return { ok: d.ok, change: d.change, reason: d.reason, text };
+}
+
+function startLive(slug, why) {
+  const live = { since: store.now(), why: String(why || "").slice(0, 120), by: "tutor" };
+  store.mutateRuntime(slug, (r) => { r.live = live; });
+  touchLink(slug);
+  screen.toast(`On your screen${live.why ? ` · ${live.why}` : ""}`.slice(0, 80), "blue");
+  emit(slug, { t: "live", live });
+  emit(slug, { t: "state", ...engine.status(slug) });
+}
+
+// Back to the board: what the stretch put on their screen comes down (a waiting question set stays in Teach), and
+// Super+/ goes back to plain chalk. When the learner ended it, the voice stops and a watch in progress ends too.
+function endLive(slug, by) {
+  store.mutateRuntime(slug, (r) => { delete r.live; });
+  const t = store.getTopic(slug);
+  if (!t.settings.screen) {
+    for (const [id, s] of onScreen) if (s.slug === slug) offScreen(id);
+    screen.chalk(["clear", "--marks"]);
+    screen.unlink(slug, onLink, { quiet: true });
+    if (by !== "ended") screen.toast("Back on the Teach board", "yellow");
+    if (by === "learner") { screen.hush(); switchMode(slug, SCREEN_STAY); }
+  }
+  emit(slug, { t: "live", live: null });
+  emit(slug, { t: "state", ...engine.status(slug) });
+}
 
 // ---------- git sync, debounced ----------
 
@@ -342,7 +417,8 @@ function kickoff(t, how, extra = {}) {
 let turnSeq = 0;
 function turn(slug, content = [], opts = {}) {
   const t = store.getTopic(slug);
-  if (t.settings.screen) touchLink(slug);
+  const live = onScreenNow(t);
+  if (live) touchLink(slug);
   boardApply(slug, { t: "turn", id: `live-${boardInst}-${++turnSeq}`, user: opts.user, answers: opts.answers });
   // A lesson that ran as a chat before the board: its tutor hears once that the page changed (the system prompt says how).
   if (!store.getRuntime(slug).boardIntro) {
@@ -350,7 +426,9 @@ function turn(slug, content = [], opts = {}) {
     if (t.sessions.length) boardNotes.set(slug, [BOARD_INTRO, ...(boardNotes.get(slug) || [])]);
   }
   const done = boardNotes.get(slug);
-  const pre = [...(t.settings.screen ? notes.get(slug) || [] : []), ...(done?.length ? [`[Teach app] board\n${done.join("\n")}`] : [])].map((text) => ({ type: "text", text }));
+  const said = content.map((c) => c.text || "").join("\n");
+  const starting = !engine.isAlive(slug) && t.settings.screen && !said.startsWith("[Teach app] screen") ? [SCREEN_STATE] : [];
+  const pre = [...starting, ...(live ? notes.get(slug) || [] : []), ...(done?.length ? [`[Teach app] board\n${done.join("\n")}`] : [])].map((text) => ({ type: "text", text }));
   notes.delete(slug); boardNotes.delete(slug);
   if (engine.isAlive(slug)) return engine.send(slug, [...pre, ...(content.length ? content : [{ type: "text", text: `[Teach app] back\n${Learner} is here. Continue.` }])]);
   const how = engine.plan(slug, opts);
@@ -630,10 +708,10 @@ async function route(req, res) {
     const t = store.getTopic(slug);
     if (!t) return json(res, 404, { error: "no such topic" });
     if (m === "GET" && action === "") {
-      if (t.settings.screen) touchLink(slug);   // the lesson is open: Super+/ should reach it
+      if (onScreenNow(t)) touchLink(slug);   // the lesson is open: Super+/ should reach it
       const deck = store.getDeck(slug);
       const byType = {}; for (const i of deck.items) byType[i.type] = (byType[i.type] || 0) + 1;
-      return json(res, 200, { topic: t, status: { ...engine.status(slug), streaming: undefined }, link: { ...screen.link }, deck: { byType, groups: deck.groups, total: deck.items.length },
+      return json(res, 200, { topic: t, status: { ...engine.status(slug), streaming: undefined }, link: { ...screen.link }, live: store.getRuntime(slug).live || null, deck: { byType, groups: deck.groups, total: deck.items.length },
         files: store.topicFiles(slug), hasLog: fs.existsSync(path.join(store.topicDir(slug), "log.md")), hasSheet: fs.existsSync(path.join(store.topicDir(slug), "sheet.md")),
         due: review.counts().by[slug] || 0, next: engine.isAlive(slug) ? null : engine.plan(slug), focus: !!focusBlock(),
         features: { sync: SYNC === "git-pr", capture: !!CAPTURE_CMD, open: !!OPEN_CMD, screen: screen.installed() } });
@@ -664,6 +742,7 @@ async function route(req, res) {
         // Super+/ on the screen (`teach tell`): the page didn't echo it, so show it there
         if (b.via === "screen") emit(slug, { t: "user", id: `screen-${Date.now()}`, text, images: [], at: store.now(), via: "screen" });
         const user = { text, images: content.filter((c) => c.type === "image").length };
+        typing.delete(slug);   // it's sent: the tutor answering it may take the lesson to the screen
         // the tutor is waiting on the screen: hand the words to that watch, which answers within the same turn
         if (engine.status(slug).watching !== null && content.length === 1 && text) {
           boardApply(slug, { t: "turn", id: `live-${boardInst}-${++turnSeq}`, user });
@@ -674,6 +753,7 @@ async function route(req, res) {
         return ok(res);
       }
       case "answer": {
+        typing.delete(slug);
         try { return ok(res, { results: answerSet(slug, b.id, Array.isArray(b.answers) ? b.answers : [], "app") }); }
         catch (e) { return json(res, e.code || 400, { error: e.message }); }
       }
@@ -691,9 +771,16 @@ async function route(req, res) {
         if (b.backfill) closeAfter.add(slug);
         turn(slug, [], { fresh: !!b.fresh, backfill: !!b.backfill });
         return ok(res);
-      case "stop": engine.interrupt(slug); if (t.settings.screen) screen.hush(); return ok(res);
+      case "live": {   // the tutor's screen tool (by "tutor"), or the page's "Stay on the board" (by "learner")
+        if (!["screen", "board"].includes(b.to)) return json(res, 400, { error: 'to must be "screen" or "board"' });
+        return json(res, 200, await moveLesson(slug, { to: b.to, why: b.why, stay: !!b.stay, by: b.by === "learner" ? "learner" : "tutor" }));
+      }
+      case "typing":   // the page: a key in the composer or a question card (draft: unsent text there), or sent (it went)
+        if (b.sent) typing.delete(slug); else typing.set(slug, { at: Date.now(), draft: !!b.draft });
+        return ok(res);
+      case "stop": engine.interrupt(slug); if (onScreenNow(t)) screen.hush(); return ok(res);
       case "pause": case "done": {
-        if (t.settings.screen) screen.unlink(slug, onLink);
+        if (onScreenNow(t)) screen.unlink(slug, onLink);
         const note = action === "pause"
           ? `[Teach app] pause\n${Learner} is pausing here. Bring log.md up to date (where we stopped, any pending check), call update with \`next\` set to the exact resume point and status "paused", and reply with one short line. Don't start anything new.`
           : `[Teach app] close\n${Learner} marked this topic done. Run Phase 4: recap in log.md, update PROFILE.md, make sure deck.json (and sheet.md for exam topics) hold what's needed for review, then call update with status "done" and a \`next\` that says what to review.${SYNC === "git-pr" ? " The app handles git." : ""} Reply with a short recap.`;
@@ -714,16 +801,21 @@ async function route(req, res) {
           if (typeof b.review === "boolean") x.settings.review = b.review;
           if (typeof b.screen === "boolean") x.settings.screen = b.screen;
           if (typeof b.voice === "boolean") x.settings.voice = b.voice;
+          if (typeof b.autoScreen === "boolean") x.settings.autoScreen = b.autoScreen;
           if (typeof b.title === "string" && b.title.trim()) x.title = b.title.trim().slice(0, 90);
           if (typeof b.deadline === "string" && (!b.deadline || /^\d{4}-\d{2}-\d{2}$/.test(b.deadline))) x.deadline = b.deadline;
           if (store.STATUSES.includes(b.status)) x.status = b.status;
         });
         if (typeof b.screen === "boolean" && b.screen !== wasScreen) {
+          const wasLive = !!store.getRuntime(slug).live;
+          if (wasLive) store.mutateRuntime(slug, (r) => { delete r.live; });   // their switch takes over the tutor's stretch
           if (!b.screen) {
             screen.hush(); screen.unlink(slug, onLink); screen.chalk(["clear"]);
             for (const [id, s] of onScreen) if (s.slug === slug) offScreen(id);
           }
-          restartWith(slug, b.screen ? SCREEN_ON : engine.isAlive(slug) ? SCREEN_OFF : null);
+          // (switched on during a stretch the tutor started: it's on their screen already, and now stays there)
+          if (!(b.screen && wasLive)) switchMode(slug, b.screen ? SCREEN_ON : engine.isAlive(slug) ? SCREEN_OFF : null);
+          if (wasLive) emit(slug, { t: "live", live: null });
         }
         if (b.voice === false) screen.hush();
         emit(slug, { t: "topic" });

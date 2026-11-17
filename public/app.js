@@ -489,6 +489,7 @@ function settingsDialog() {
         <label class="field-row"><span>Effort</span><select class="field" name="effort">${["medium", "high", "xhigh"].map((m) => `<option${t.settings.effort === m ? " selected" : ""}>${m}</option>`).join("")}</select></label>
         <label class="field-row check"><input type="checkbox" name="review"${t.settings.review !== false ? " checked" : ""}> <span>Include in daily review</span></label>
         <label class="field-row check screen-chip"><input type="checkbox" name="screen"${t.settings.screen ? " checked" : ""}> <span>Teach on my screen</span></label>
+        <label class="field-row check screen-chip"><input type="checkbox" name="autoScreen"${t.settings.autoScreen !== false ? " checked" : ""}> <span>The tutor may take a step onto my screen when it's about something there</span></label>
         <label class="field-row check"><input type="checkbox" name="voice"${t.settings.voice !== false ? " checked" : ""}> <span>Talk out loud on my screen</span></label>
         <label class="field-row"><span>Status</span><select class="field" name="status">${["active", "paused", "done", "archived"].map((m) => `<option${t.status === m ? " selected" : ""}>${m}</option>`).join("")}</select></label>
         <p class="hint">Model and effort apply from the next session. Archived topics leave the home page and review.</p>
@@ -499,7 +500,8 @@ function settingsDialog() {
   d.addEventListener("close", async () => {
     if (d.returnValue === "save") {
       const f = new FormData($("form", d));
-      await api(`/api/topics/${T.slug}/settings`, { title: f.get("title"), deadline: f.get("deadline"), model: f.get("model"), effort: f.get("effort"), review: f.get("review") === "on", screen: f.get("screen") === "on", voice: f.get("voice") === "on", status: f.get("status") });
+      await api(`/api/topics/${T.slug}/settings`, { title: f.get("title"), deadline: f.get("deadline"), model: f.get("model"), effort: f.get("effort"), review: f.get("review") === "on", screen: f.get("screen") === "on", voice: f.get("voice") === "on", status: f.get("status"),
+        ...($("[name=autoScreen]", d) ? { autoScreen: f.get("autoScreen") === "on" } : {}) });
       showTopic(T.slug, T.tab);
     }
     d.remove();
@@ -516,6 +518,7 @@ async function mountLesson(shell) {
         <div class="dock-inner">
           <div class="resume" hidden></div>
           <div class="watching" hidden></div>
+          <div class="live-bar" hidden></div>
           <div class="quick" aria-label="Quick replies">
             <button class="chip screen-chip" type="button" aria-pressed="false" title="Teach on your screen: spoken steps, marks where to click, and the tutor watches you do it">${icon("screen", "icon icon-sm")}On my screen</button>
             <button class="chip" type="button" data-quick="Hint, please.">Hint</button>
@@ -851,6 +854,15 @@ function wireComposer(stream) {
   const form = $(".composer", stream), ta = $("textarea", form), row = $(".attach-row", form), picker = $("input[type=file]", form);
   const grow = () => { ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight, 260) + "px"; };
   ta.addEventListener("input", grow);
+  // Typing here (or in a question card on the board) tells the server, at most every few seconds: the tutor won't take
+  // the lesson onto the screen while they're mid-sentence in this window.
+  let typed = 0;
+  (stream.closest(".lesson") || stream).addEventListener("input", (e) => {
+    if (!e.target.matches("textarea, input") || Date.now() - typed < 4000) return;
+    typed = Date.now();
+    const draft = !!ta.value.trim() || !!e.target.closest(".qcard");
+    api(`/api/topics/${T.slug}/typing`, { draft }).catch(() => {});
+  });
   ta.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); form.requestSubmit(); }
   });
@@ -887,6 +899,7 @@ function wireComposer(stream) {
     const text = ta.value.trim();
     if (!text && !pending.images.length && !pending.files.length) return;
     const body = { text, images: pending.images.slice(), files: pending.files.filter((f) => f.path).map((f) => f.path) };
+    typed = 0;
     boardEcho(text + (body.files.length ? `\n\nAttached: ${pending.files.map((f) => f.name).join(", ")}` : ""), body.images.length);
     ta.value = ""; grow();
     pending.images = []; pending.files = []; paint();
@@ -915,6 +928,7 @@ function paintDock() {
   paintLink();
   w.hidden = T.status.watching == null;
   if (!w.hidden) w.innerHTML = `<span class="spinner" aria-hidden="true"></span><span>${T.status.watching ? `Your turn on screen: ${mdi(T.status.watching)}.` : "Your turn on screen."} The tutor is watching. Ask here or with <kbd>Super+/</kbd>.</span>`;
+  paintLive(dock);
   const resume = $(".resume", dock);
   const t = T.data.topic;
   const waiting = !!boardPendingCard();
@@ -928,11 +942,29 @@ function paintDock() {
   }
 }
 
+// The tutor took this step onto their screen (the `screen` tool): what it's doing there, and the way to say no.
+function paintLive(dock) {
+  const bar = $(".live-bar", dock), live = T.data.live;
+  bar.hidden = !live || !!T.data.topic.settings.screen;
+  // (repainted only when the stretch changes: state events arrive all through a turn, and a rebuilt button loses a click)
+  const key = bar.hidden ? "" : JSON.stringify(live);
+  if (bar.dataset.key === key) return;
+  bar.dataset.key = key;
+  if (bar.hidden) return;
+  bar.innerHTML = `<span class="live-dot" aria-hidden="true"></span><span>On your screen${live.why ? `: ${mdi(live.why)}` : ""}. The tutor is showing you there; it comes back here after.</span>
+    <button class="btn btn-sm" type="button" title="Back to the board now, and the tutor stops moving this topic onto your screen (Settings turns it back on)">Stay on the board</button>`;
+  $("button", bar).addEventListener("click", async (e) => {
+    e.currentTarget.disabled = true;
+    try { await api(`/api/topics/${T.slug}/live`, { to: "board", stay: true, by: "learner" }); toast("Staying on the board for this topic. Settings turns screen steps back on."); }
+    catch (err) { toast(`Couldn't switch back: ${err.message}`); e.currentTarget.disabled = false; }
+  });
+}
+
 // Where the Super+/ hotkey goes right now: this lesson's tutor, plain chalk, or nowhere (chalk unreachable).
 function paintLink() {
   const pill = $(".link-pill");
   if (!pill) return;
-  const l = T.link || {}, on = !!T.data.topic.settings.screen;
+  const l = T.link || {}, on = !!T.data.topic.settings.screen || !!T.data.live;
   pill.hidden = !on;
   if (!on) return;
   const state = l.slug === T.slug ? (l.ok ? "tutor" : l.ok === false ? "offline" : "linking") : "chalk";
@@ -951,6 +983,7 @@ function onTopicEvent(ev) {
     return;
   }
   if (ev.t === "topic") return refreshTopic();
+  if (ev.t === "live") { T.data.live = ev.live; paintDock(); return; }
   if (ev.t === "state") { T.status = ev; paintDock(); renderSide(); wsPaint(); paintReply(); return; }
   if (T.tab !== "lesson") return;
   switch (ev.t) {

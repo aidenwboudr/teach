@@ -8,16 +8,19 @@ import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import * as ops from "./lib/ops.mjs";
-import { getTopic, topicDir } from "./lib/store.mjs";
+import { getTopic, getRuntime, topicDir } from "./lib/store.mjs";
 import { Learner, LEARNING } from "./lib/paths.mjs";
 import { renderSvg } from "./skill/render-svg.mjs";
 import { inside } from "./lib/platform.mjs";
 import * as review from "./lib/review.mjs";
 import * as board from "./lib/board.mjs";
-import { CHALK, ROUTE_TTL, takeInbox, chalk, speakSeconds, toast, panel, reviewPanel, reviewGood, screenable } from "./lib/screen.mjs";
+import { CHALK, ROUTE_TTL, takeInbox, chalk, speakSeconds, toast, panel, reviewPanel, reviewGood, screenable, isLive, OFF_SCREEN } from "./lib/screen.mjs";
 
 const TOPIC = process.env.TEACH_TOPIC;
-const SCREEN = process.env.TEACH_SCREEN === "1";   // screen mode: say + watch (chalk's own MCP server adds look/draw/clear)
+// The screen tools (say, watch, review, screen; chalk's own MCP server adds look/draw/clear): there when chalk is. They
+// work while the lesson is on the learner's screen (their "On my screen" switch, or a stretch the tutor started with `screen`).
+const SCREEN = process.env.TEACH_SCREEN === "1";
+const live = () => SCREEN && isLive(getTopic(TOPIC), getRuntime(TOPIC));
 const md = "Markdown; math as LaTeX in $…$ or $$…$$ (rendered with KaTeX)";
 const CHALK_HOME = path.dirname((() => { try { return fs.realpathSync(CHALK); } catch { return CHALK; } })());
 const SCENE_DOC = path.join(CHALK_HOME, "scene.md");
@@ -212,21 +215,28 @@ TOOLS.push({
 
 // The board as the server has it now (the server applied this call's change from the stream already, or is about
 // to; the change is applied here too, which is a no-op when it already happened).
-function readBoard() {
-  const SERVER = process.env.TEACH_SERVER || "", p = `/api/topics/${TOPIC}/board`;
+// One request to the Teach server (TEACH_SERVER: its socket or URL). Resolves to the parsed reply, or null.
+function server(p, body, ms = 3000) {
+  const SERVER = process.env.TEACH_SERVER || "";
   return new Promise((resolve) => {
-    const timer = setTimeout(() => resolve(null), 3000);
-    const finish = (txt) => { clearTimeout(timer); try { const v = JSON.parse(txt).board; resolve(v ? board.fromView(v) : null); } catch { resolve(null); } };
+    const timer = setTimeout(() => resolve(null), ms);
+    const finish = (txt) => { clearTimeout(timer); try { resolve(JSON.parse(txt)); } catch { resolve(null); } };
     if (!SERVER) return finish("");
+    const data = body === undefined ? null : JSON.stringify(body);
+    const headers = { Host: "localhost", ...(data ? { "Content-Type": "application/json", "X-Teach": "1" } : {}) };
     if (SERVER.startsWith("/")) {
-      const req = http.request({ socketPath: SERVER, path: p, headers: { Host: "localhost" } }, (res) => {
+      const req = http.request({ socketPath: SERVER, path: p, method: data ? "POST" : "GET", headers }, (res) => {
         let d = ""; res.setEncoding("utf8"); res.on("data", (c) => { d += c; }); res.on("end", () => finish(d));
       });
       req.on("error", () => finish(""));
-      req.end();
-    } else fetch(SERVER + p).then((r) => r.text()).then(finish, () => finish(""));
+      req.end(data || undefined);
+    } else {
+      const { Host, ...rest } = headers;
+      fetch(SERVER + p, data ? { method: "POST", headers: rest, body: data } : {}).then((r) => r.text()).then(finish, () => finish(""));
+    }
   });
 }
+const readBoard = async () => { const v = (await server(`/api/topics/${TOPIC}/board`))?.board; return v ? board.fromView(v) : null; };
 const withBoard = async (text, change) => {
   const b = await readBoard();
   if (!b) return text;
@@ -253,6 +263,24 @@ const SCREEN_TOOLS = [
         expect: { type: "string", description: "What you're waiting for them to do, in a few words (shown in the app), e.g. 'open the Layers panel'" },
         timeout: { type: "number", description: "Seconds to wait (default 90, max 300). On a timeout, offer a hint." },
         settle: { type: "number", description: "Seconds the screen has to hold still before it counts (default 1.2; ~4 when they're typing something longer)" },
+      },
+    },
+  },
+  {
+    name: "screen",
+    description: "Move the lesson onto the learner's actual screen for the step(s) that are about something there, or back to the Teach board. " +
+      "You decide, the way you lay out the board: go to the screen when the step is about something on their computer (a program's window or menus, " +
+      "a datasheet or schematic open there, the code in their editor, a terminal) and doing it there is the learning; stay on the board for ideas with " +
+      "nothing on screen to point at (use notes, figures and scenes). Before calling it, say why in one short line of reply text. " +
+      "The app may refuse (their screen is locked or asleep, they're typing in Teach, they asked to stay on the board): then the result says why; teach it on the board. " +
+      "Once it's live, follow the screen guide's loop (screen_look first). When the screen part is done: one spoken wrap-up line, screen_clear, then call this with to: \"board\". " +
+      "If they say to stay on the board (or stop using their screen), call it with to: \"board\" and stay: true.",
+    inputSchema: {
+      type: "object", required: ["to"],
+      properties: {
+        to: { type: "string", enum: ["screen", "board"] },
+        why: { type: "string", description: "screen: what you'll do there, a few words they see on the switch (e.g. 'find Pin Planner in Quartus')" },
+        stay: { type: "boolean", description: "board: they asked to stay on the board for this topic; you won't move it to their screen again" },
       },
     },
   },
@@ -339,6 +367,16 @@ async function reviewOnScreen(args, id) {
   return `Review on their screen (${graded} graded, ${good} good; the schedule is updated):\n${lines.join("\n")}`;
 }
 
+// The `screen` tool: the server weighs it (lib/screen.mjs liveDecision: chalk, their screen locked or asleep, typing in
+// Teach, "stay on the board") and makes the switch; the tutor gets the outcome in words.
+async function moveTo(args) {
+  const to = args.to === "board" ? "board" : args.to === "screen" ? "screen" : null;
+  if (!to) throw new Error('to must be "screen" or "board"');
+  const r = await server(`/api/topics/${TOPIC}/live`, { to, why: String(args.why || "").slice(0, 120), stay: !!args.stay, by: "tutor" }, 30e3);
+  if (!r) return { error: "The Teach server didn't answer, so nothing changed. Carry on where the lesson is." };
+  return r.ok ? r.text : { error: `Not now: ${r.reason}` };
+}
+
 function say(args) {
   const text = String(args.text || "").replace(/\s+/g, " ").trim();
   if (!text) throw new Error("text is empty");
@@ -349,14 +387,17 @@ function say(args) {
 
 async function call(name, args, id) {
   if (!TOPIC) throw new Error("TEACH_TOPIC is not set; this server only runs inside the Teach app");
+  if (SCREEN && name === "screen") return moveTo(args);
+  if (SCREEN && ["watch", "say", "review"].includes(name) && !live()) return { error: OFF_SCREEN };
   if (SCREEN && name === "watch") return watch(args, id);
   if (SCREEN && name === "say") return say(args);
   if (SCREEN && name === "review") return reviewOnScreen(args, id);
   switch (name) {
     case "ask": {
       const a = ops.normalizeAsk(args);  // validate only; the app reads the call from the stream and shows it
-      if (SCREEN && screenable(a)) return "Shown on their screen as a card they answer there (beside your box, if you gave one) and in Teach. End your turn now; their answers arrive as your next message.";
-      return "Shown to the learner" + (SCREEN ? " in the Teach window only (pictures and ordering questions don't go on the screen): tell them out loud there's a question in Teach" : "") + ". End your turn now; their answers arrive as your next message.";
+      const onScreen = live();
+      if (onScreen && screenable(a)) return "Shown on their screen as a card they answer there (beside your box, if you gave one) and in Teach. End your turn now; their answers arrive as your next message.";
+      return "Shown to the learner" + (onScreen ? " in the Teach window only (pictures and ordering questions don't go on the screen): tell them out loud there's a question in Teach" : "") + ". End your turn now; their answers arrive as your next message.";
     }
     case "update": ops.update(TOPIC, args); return "Updated.";
     case "plan": { const t = ops.plan(TOPIC, args); return `Plan set: ${t.plan.length} steps.`; }
@@ -376,7 +417,7 @@ async function call(name, args, id) {
     case "step": {
       const t = ops.step(TOPIC, args);
       const i = t.plan.findIndex((x) => x.id === String(args.id)), n = t.plan[i];
-      if (SCREEN && ["done", "shaky", "current"].includes(args.status)) {   // a tiny toast on their screen: where the plan stands
+      if (live() && ["done", "shaky", "current"].includes(args.status)) {   // a tiny toast on their screen: where the plan stands
         const done = t.plan.filter((x) => x.status === "done").length;
         toast(args.status === "current" ? `Step ${i + 1} of ${t.plan.length} · ${n.title}` : `Step ${i + 1} ${args.status === "done" ? "done" : "shaky, we'll come back"} · ${done} of ${t.plan.length}`,
           args.status === "done" ? "green" : args.status === "shaky" ? "yellow" : "blue");
@@ -400,7 +441,7 @@ async function call(name, args, id) {
     case "scene": {
       const sc = ops.normalizeScene(args);   // validate only; the app reads the call from the stream and puts it up
       return withBoard(`On the board in Teach${sc.predict.length ? `. Step ${sc.predict[0].step + 1} waits for their prediction: end your turn now; it arrives as your next message` : ""}.` +
-        (SCREEN ? " Tell them out loud it's in the Teach window." : ""));
+        (live() ? " Tell them out loud it's in the Teach window." : ""));
     }
     default: throw new Error(`unknown tool ${name}`);
   }
