@@ -4,7 +4,7 @@ A one-to-one tutor that runs on the AI agent you already use: [Claude Code](http
 (the default), OpenAI's [Codex](https://developers.openai.com/codex/cli), Google's
 [Gemini CLI](https://github.com/google-gemini/gemini-cli), or a local model. Tell it what you want to learn. It probes what you already know with graded multiple-choice questions, plans a fact-checked path
 from there to your goal, and teaches it one reasoning step at a time, checking you after each step. It keeps a
-log, a knowledge map and a spaced-repetition deck for every topic, all in a local web app.
+log and a knowledge map for every topic, and makes the sheet, worksheet or deck you ask for at the end, all in a local web app.
 
 ![A lesson in Teach: open a topic, answer the tutor's check on the board, get its reply and a new note with the worked result, then review a flashcard](docs/demo.gif)
 
@@ -29,8 +29,14 @@ log, a knowledge map and a spaced-repetition deck for every topic, all in a loca
   the board, Esc leaves; the Transcript tab has the whole lesson in order.
 - **Question cards with instant feedback**: choice, multi, typed text with a timer, numbers with units,
   ordering, and hands-on tasks (Done / Stuck).
-- **Review**: every check becomes a card in a Leitner schedule (flashcards, multiple choice, type-it, traps,
-  timelines, essay outlines), plus Cram for exam week and a printable review sheet.
+- **What next, when you want it**: when a session ends, a grid of actions that fit the topic, best first: a note
+  sheet sized to what your exam allows (page count, sides, font, what to include), a printable worksheet with a
+  separate answer key, a timed practice test, a review session on your calendar, flashcards, a bench or reference
+  card, exercises to do on your own, lesson notes. Each stays grey until you click it; nothing is generated (and
+  no usage spent) before that, and you can pause one mid-way and resume it later. PDFs are fitted to the page
+  budget in headless Chrome and checked before you get them.
+- **Review**: flashcards you asked for go into a Leitner schedule (multiple choice, type-it, traps, timelines,
+  essay outlines), daily until an exam or spaced, plus Cram for exam week.
 - **Modes by purpose**: exam (sized to the days left), homework (parallel problems only, never the assigned
   one), writing (timed outlines and paragraphs; it edits, never writes for you), skill, curiosity.
 - **Math and pictures**: LaTeX renders with KaTeX; the tutor draws diagrams as SVG and checks them before
@@ -158,7 +164,8 @@ changing it (`systemctl --user restart teach`, `launchctl kickstart -k gui/$(id 
 | `TEACH_MODEL` | per topic (Opus) on Claude Code; the CLI's default elsewhere | Force a model for every tutor, in that CLI's naming (e.g. `sonnet`, `gpt-5.5`, `gemini-2.5-pro`, `qwen3:32b`); required for `local` |
 | `TEACH_LOCAL_URL` | `http://127.0.0.1:11434/v1` | `local`: the model server (OpenAI-style, with the Responses API) |
 | `TEACH_LOCAL_KEY_ENV` | (none) | `local`: the name of the variable that holds that server's key, if it needs one |
-| `TEACH_CHROME` | found by itself | The browser that renders the tutor's diagrams |
+| `TEACH_CHROME` | found by itself (`chrome-headless-shell` first) | The browser that renders the tutor's diagrams and the PDFs the end-of-session actions make |
+| `TEACH_CALENDAR_CMD` | (none) | Adds a scheduled review session to your calendar: gets `TITLE "YYYY-MM-DD HH:MM" --for 30m --note TEXT [--remind 30m]`. Without it, the session gets an .ics download |
 | `TEACH_SYNC` | off | `git-pr`: when the learning folder is in a GitHub checkout, ship changes as a PR and squash-merge it (needs `gh`) |
 | `TEACH_BROWSER` | the system's opener | How `teach open` opens the app, e.g. `chromium --app={app}` |
 | `TEACH_OPEN_CMD` | (none) | With `{app}` windows: a command that opens clicked links in your own browser |

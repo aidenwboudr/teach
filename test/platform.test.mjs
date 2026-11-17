@@ -14,7 +14,7 @@ Object.assign(process.env, { HOME, USERPROFILE: HOME, TEACH_CONFIG: "/dev/null",
   TEACH_WORK: path.join(tmp, "work"), TEACH_PROJECTS: path.join(tmp, "projects"), TEACH_ACCESS: "", TEACH_SAFE: "" });
 for (const d of ["learning", "work", "state"]) fs.mkdirSync(path.join(tmp, d), { recursive: true });
 const pf = await import("../lib/platform.mjs");
-const { svgSize, findChrome } = await import("../skill/render-svg.mjs");
+const { svgSize, findChrome, chromeArgs } = await import("../skill/render-svg.mjs");
 const { permit, policyFor } = await import("../lib/engine.mjs");
 const setupMod = await import("../lib/setup.mjs");
 const { APP, LEARNING, WORK } = await import("../lib/paths.mjs");
@@ -74,8 +74,17 @@ test("render: the SVG's size, and a browser to render with on each platform", ()
   assert.equal(findChrome({ platform: "darwin", env: {}, exists: files(["/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge"]) }), "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge");
   assert.equal(findChrome({ platform: "win32", env: { ProgramFiles: "C:\\Program Files", "ProgramFiles(x86)": "C:\\Program Files (x86)" },
     exists: files(["C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"]) }), "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe");
-  assert.equal(findChrome({ platform: "linux", env: { PATH: "/usr/bin:/snap/bin" }, exists: files(["/snap/bin/chromium"]) }), "/snap/bin/chromium");
-  assert.equal(findChrome({ platform: "linux", env: { PATH: "/usr/bin" }, exists: () => false }), null);
+  assert.equal(findChrome({ platform: "linux", env: { PATH: "/usr/bin:/snap/bin", HOME: "/h" }, exists: files(["/snap/bin/chromium"]), list: () => [] }), "/snap/bin/chromium");
+  assert.equal(findChrome({ platform: "linux", env: { PATH: "/usr/bin", HOME: "/h" }, exists: () => false, list: () => [] }), null);
+  // the headless shell beats a full Chrome on PATH, and doesn't get --headless=new
+  assert.equal(findChrome({ platform: "linux", env: { PATH: "/usr/bin:/opt/s" }, exists: files(["/usr/bin/google-chrome", "/opt/s/chrome-headless-shell"]) }), "/opt/s/chrome-headless-shell");
+  assert.ok(!chromeArgs("/opt/s/chrome-headless-shell").includes("--headless=new"));
+  // …and Playwright's download of it, the newest build
+  const pw = "/h/.cache/ms-playwright";
+  assert.equal(findChrome({ platform: "linux", env: { PATH: "/usr/bin", HOME: "/h" }, list: () => ["chromium-1243", "chromium_headless_shell-1223", "chromium_headless_shell-1243"],
+    exists: files(["/usr/bin/google-chrome", `${pw}/chromium_headless_shell-1223/chrome-headless-shell-linux64/chrome-headless-shell`, `${pw}/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell`]) }),
+    `${pw}/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell`);
+  assert.ok(chromeArgs("/usr/bin/google-chrome").includes("--headless=new"));
 });
 
 test("restricted is the default; full access only when asked for, and TEACH_SAFE still wins", async () => {
