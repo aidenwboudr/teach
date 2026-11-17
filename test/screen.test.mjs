@@ -38,6 +38,7 @@ const screen = await import("../lib/screen.mjs");
 const tr = await import("../lib/transcript.mjs");
 const opsMod = await import("../lib/ops.mjs");
 store.createTopic({ slug: "gimp-layers", title: "GIMP layers" });
+store.mutateTopic("gimp-layers", (t) => { t.settings.screen = true; });   // their "On my screen" switch: the lesson is on the screen
 
 // Talk to mcp.mjs over stdio like Claude Code does.
 function mcp(env = {}) {

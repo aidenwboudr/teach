@@ -36,8 +36,11 @@ log, a knowledge map and a spaced-repetition deck for every topic, all in a loca
   showing them; interactive HTML widgets run sandboxed.
 - **Optional screen mode** (Linux with Sway or another wlroots compositor only): with
   [screen-chalk](https://github.com/aidenwboudr/screen-chalk) installed, the tutor talks you through a real app out
-  loud, marks your actual screen and watches you do each step. Everything else works on Linux, macOS, Windows and
-  in Docker.
+  loud, marks your actual screen and watches you do each step. Turn it on for a whole lesson ("On my screen"), or
+  let the tutor take single steps there by itself when they're about something on your screen (a program, a
+  datasheet, your code) and come back to the board after. It doesn't when your screen is locked or asleep or
+  you're typing in Teach, and "Stay on the board" stops it for that topic. Everything else works on Linux,
+  macOS, Windows and in Docker.
 
 Everything is plain files: `PROFILE.md` (what you know, how you like to learn; the tutor keeps it current) and one
 folder per topic (`topic.json`, `log.md`, `deck.json`, `figures/`).

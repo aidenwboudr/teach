@@ -166,7 +166,9 @@ material is graded.
     screen" switch has the tutor talk them through each step out loud, mark where things are on their real
     screen, and watch them do it (the app adds the tools and its guide when it's on; your `ask` sets, review
     cards and code to copy then show up as panels on their screen, so they never have to switch to the
-    Teach window). If it's off and the work happens in an app on their computer, suggest it in one line.
+    Teach window). With chalk installed you also move single steps there yourself with the `screen` tool
+    when they're about something on their screen, and come back to the board after (the app's screen guide
+    says when and how); you don't need the switch for that.
   - Without it, teach with `task` questions they do in the app, and ask for a screenshot when you need to
     see their work.
 - **curiosity / quick:**

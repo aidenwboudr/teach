@@ -933,6 +933,17 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--blue); }
   font: 400 14px/1.45 var(--font-ui); color: var(--ink);
 }
 .watching[hidden] { display: none; }
+.live-bar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin: 0 0 10px; padding: 8px 12px;
+  border: 1px solid color-mix(in oklab, var(--blue) 35%, var(--edge)); border-radius: var(--r);
+  background: var(--blue-tint); font: 400 14px/1.45 var(--font-ui); color: var(--ink);
+}
+.live-bar[hidden] { display: none; }
+.live-bar > span:nth-child(2) { flex: 1 1 260px; }
+.live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--blue); flex: none; animation: live-pulse 1.6s ease-in-out infinite; }
+@keyframes live-pulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
 .screen-chip .icon { margin-right: 5px; vertical-align: -2px; }
 .attach-row { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 10px 0; }
 .file-tag img.mini { height: 18px; width: auto; border-radius: 3px; vertical-align: -4px; }
