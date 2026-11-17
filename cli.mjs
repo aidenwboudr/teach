@@ -124,7 +124,7 @@ try {
     case "update": case "plan": case "step": case "cards": {
       const [slug, body] = args;
       const r = await api(`/api/topics/${slug}/op`, { op: cmd, args: json(body) });
-      console.log(cmd === "cards" ? `added ${r.result.added}, deck has ${r.result.total}` : "ok");
+      console.log(cmd === "cards" ? `added ${r.result.added}, deck has ${r.result.total}` : ["ok", r.summary].filter(Boolean).join(": "));
       break;
     }
     case "bring": await bring(); break;

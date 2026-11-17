@@ -1031,6 +1031,16 @@ function refreshTopic() {
 
 // ---------- sidebar ----------
 
+// The exam's scope, one level down: each line, the sub-topics its lectures teach and the step that covers each.
+function scopeHTML(scope) {
+  const lines = (Array.isArray(scope) ? scope : []).filter((l) => l?.line);
+  if (!lines.length) return "";
+  const n = lines.reduce((k, l) => k + (l.subtopics || []).length, 0);
+  return `<h3>Exam scope <span class="n">${n} sub-topic${n === 1 ? "" : "s"}</span></h3><ul class="strands scope">${lines.map((l) => `<li data-has="true"><span class="strand-mark"></span><span>${mdi(l.line)}
+      <span class="edge">${(l.subtopics || []).map((s) => s.skip ? `<s>${mdi(s.name || "")}</s> (skipped: ${mdi(s.skip)})` : `${mdi(s.name || "")} <span class="mono">(step ${(s.nodes || []).map(esc).join(", ")})</span>`).join("; ")}</span>
+      ${(l.taught_in || []).length ? `<span class="edge faint">from ${l.taught_in.map((x) => esc(String(x).split("/").pop())).join(", ")}</span>` : ""}</span></li>`).join("")}</ul>`;
+}
+
 function renderSide() {
   const side = $("#side");
   if (!side || !T.data) return;
@@ -1052,6 +1062,7 @@ function renderSide() {
       <summary><span class="step-mark"></span><span class="step-title">${mdi(n.title)}</span>${n.result && n.result.length <= 6 ? `<span class="step-result">${esc(n.result)}</span>` : ""}</summary>
       <div class="step-detail">${n.result && n.result.length > 6 ? `<p class="mono faint">${esc(n.result)}</p>` : ""}${n.detail ? `<p>${mdi(n.detail)}</p>` : ""}${n.note ? `<p class="muted">${mdi(n.note)}</p>` : ""}${n.deps.length ? `<p class="faint mono">after ${n.deps.map(esc).join(", ")}</p>` : ""}</div></details></li>`).join("")}</ol>`
       : `<p class="muted side-empty">The plan appears here once the probe has found your edge.</p>`}
+    ${scopeHTML(t.scope)}
     ${t.map.length ? `<h3>Knowledge map <span class="n">from the probe</span></h3><ul class="strands">${t.map.map((s) => `<li data-has="${has(s)}"><span class="strand-mark"></span><span>${mdi(s.strand)}${s.misconception ? ' <span class="flag">misconception</span>' : ""}
       <span class="edge">${[s.has && `has ${s.has}`, s.missing && `not yet: ${s.missing}`, s.misconception].filter(Boolean).map(mdi).join("; ")}</span></span></li>`).join("")}</ul>` : ""}
     ${t.facts.length ? `<h3>Fact-check notes <span class="n">${t.facts.length}</span></h3><ul class="side-list">${t.facts.map((f) => `<li>${mdi(f)}</li>`).join("")}</ul>` : ""}
