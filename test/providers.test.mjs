@@ -112,8 +112,8 @@ test("the skill as text for CLIs without a Skill tool: no front matter, local.md
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, "SKILL.md"), "---\nname: teach\n---\n\n# Teach\nProbe first.\n");
   assert.equal(pv.skillText(dir), "# Teach\nProbe first.");
-  fs.writeFileSync(path.join(dir, "local.md"), "Sam takes PHSX 222.");
-  assert.match(pv.skillText(dir), /^## This install's additions[^\n]*\n\nSam takes PHSX 222\.\n\n# Teach/);
+  fs.writeFileSync(path.join(dir, "local.md"), "Sam takes Physics 101.");
+  assert.match(pv.skillText(dir), /^## This install's additions[^\n]*\n\nSam takes Physics 101\.\n\n# Teach/);
 });
 
 // ---------- translation ----------
