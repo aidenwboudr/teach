@@ -178,6 +178,7 @@ const homeSource = new EventSource("/api/events");
 homeSource.onmessage = (m) => {
   const ev = JSON.parse(m.data);
   if (ev.t === "home" || ev.t === "sync") refreshHome();
+  if (ev.t === "courses") coursesEvent(ev);
   if (ev.t === "reviewed") dropReviewed(new Set(ev.keys));
 };
 
@@ -216,6 +217,7 @@ function route() {
   document.body.classList.remove("on-lesson", "focus-mode");
   if (p === "/" || p === "/new") { page = "home"; $('[data-nav="home"]').setAttribute("aria-current", "page"); return showHome(); }
   if (p === "/review") { page = "review"; $('[data-nav="review"]').setAttribute("aria-current", "page"); return showReview(); }
+  if (p === "/courses" || p.startsWith("/courses/")) { page = "courses"; $('[data-nav="courses"]').setAttribute("aria-current", "page"); return showCourses(p); }
   if (p === "/profile") { page = "profile"; $('[data-nav="profile"]').setAttribute("aria-current", "page"); return showProfile(); }
   if ((m = p.match(/^\/t\/([a-z0-9-]+)(?:\/(review|notes|files|transcript))?\/?$/))) { page = "topic"; return showTopic(m[1], m[2] || "lesson"); }
   go("/");

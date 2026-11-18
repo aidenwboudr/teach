@@ -1,0 +1,23 @@
+{
+ "slug": "finance", "title": "Finance", "kind": "track", "status": "alternative",
+ "model": "A finance track from free courses: accounting, then finance theory, then valuation",
+ "about": "Read financial statements, price assets and value companies, in that order: each course assumes the one before it.",
+ "pace": { "hoursPerWeek": 6, "concurrent": 1 }, "start": { "kind": "manual" },
+ "slots": [
+  { "id": "accounting", "kind": "foundation", "area": "Financial accounting", "requirement": "How the balance sheet, income statement and cash flows are built and read.",
+    "candidate": { "id": "wharton-accounting", "code": "Wharton (Coursera)", "title": "Introduction to Financial Accounting", "institution": "University of Pennsylvania (Wharton)", "instructors": ["Brian Bushee"],
+      "url": "https://www.coursera.org/learn/wharton-accounting", "videos": true, "kind": "math",
+      "sources": [{ "part": "lectures", "title": "Introduction to Financial Accounting", "institution": "Wharton (Coursera)", "url": "https://www.coursera.org/learn/wharton-accounting" },
+        { "part": "assignments", "title": "Introduction to Financial Accounting", "institution": "Wharton (Coursera)", "url": "https://www.coursera.org/learn/wharton-accounting" },
+        { "part": "exams", "generated": true, "note": "Coursera's graded quizzes need a paid seat: generated exams, labelled so" }],
+      "note": "Audit is free (videos and readings); graded quizzes are paid." }, "after": [], "why": "The language of the other two courses." },
+  { "id": "finance-theory", "kind": "core", "area": "Finance theory", "requirement": "Present value, fixed income, equities, risk and return, CAPM, options.",
+    "candidate": { "id": "mit-15-401", "code": "MIT 15.401", "title": "Finance Theory I", "institution": "MIT OpenCourseWare", "instructors": ["Andrew Lo"], "edition": "Fall 2008",
+      "url": "https://ocw.mit.edu/courses/15-401-finance-theory-i-fall-2008/", "videos": true, "kind": "math", "graded": { "psets": true, "midterm": true, "final": true } },
+    "after": ["accounting"], "why": "Needs the accounting to read the cash flows it prices." },
+  { "id": "valuation", "kind": "capstone", "area": "Valuation", "requirement": "Valuing companies: DCF, relative valuation, the story behind the numbers.",
+    "candidate": { "id": "damodaran-valuation", "code": "NYU Stern", "title": "Valuation (MBA class webcasts)", "institution": "NYU Stern", "instructors": ["Aswath Damodaran"],
+      "url": "https://pages.stern.nyu.edu/~adamodar/New_Home_Page/webcasteqspr25.htm", "videos": true, "kind": "mixed", "graded": { "midterm": true, "final": true, "solutions": true } },
+    "after": ["finance-theory"], "why": "Puts accounting and finance theory to work on real companies." }
+ ]
+}
