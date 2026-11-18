@@ -10,6 +10,12 @@
 //   teach update|plan|step|cards <slug> '<json>'   change a topic the way the app's teach tools do
 //   teach bring [--all]           send /teach sessions that ran on this machine (T3 Code, a focus tool, a terminal) to the app
 //   teach focus on "<goal>" <until-epoch> | off      tell the app a focus block started or ended
+//   teach course import FILE.json [--replace]    add a course (its units, readings, work, exams; examples/courses/)
+//   teach program import FILE.json [--replace]   add a program: a major or track of courses in order (examples/programs/)
+//   teach courses                 programs and courses, and where each stands
+//   teach program start <slug>    start a program now (its first course's pre-test is made)
+//   teach note "busy week, travelling" [--week YYYY-MM-DD]   a note for the course professor (this machine only)
+//   teach checkin [--dry]         run the weekly course check-in now (--dry: print it, change and send nothing)
 //   teach sync                    ship the learning folder now (TEACH_SYNC=git-pr: PR + squash-merge)
 //   teach serve [--log]           run the server here, with the settings file loaded (--log: into its state folder)
 //   teach setup [--demo] [--no-service] [--no-skill] [--no-command]   install or refresh Teach for this user
@@ -131,6 +137,36 @@ try {
     case "focus":
       await api("/api/focus", args[0] === "on" ? { goal: args[1], until: Number(args[2]) } : {});
       break;
+    case "course": case "program": {
+      const [sub, a1] = args;
+      if (sub === "import" && a1) {
+        const doc = JSON.parse(fs.readFileSync(a1, "utf8"));
+        const r = await api(`/api/${cmd === "course" ? "courses" : "programs"}/import`, { [cmd]: doc, replace: args.includes("--replace") });
+        console.log(`${cmd} ${r.slug}: ${URL_PUBLIC}/courses/${cmd === "course" ? "c" : "p"}/${r.slug}`);
+      } else if (cmd === "program" && sub === "start" && a1) {
+        const r = await api(`/api/programs/${a1}/start`, {});
+        console.log(r.start.text);
+      } else throw new Error(`usage: teach ${cmd} import FILE.json [--replace]${cmd === "program" ? " | teach program start <slug>" : ""}`);
+      break;
+    }
+    case "courses": {
+      const r = await api("/api/courses");
+      for (const p of r.programs) console.log(`${p.title} (${p.status}): ${p.progress.done}/${p.progress.total} done · ${p.start.text}${p.timeline.finish ? ` · done around ${p.timeline.finish}` : ""}`);
+      for (const c of r.courses) console.log(`  ${c.code || ""} ${c.title}: ${c.progress.done}/${c.progress.items} · ${c.hours.left} h left (${c.hours.basis})${c.behind ? ` · ${c.behind} behind` : ""}${c.grade !== null ? ` · ${c.grade}%` : ""}`);
+      break;
+    }
+    case "note": {
+      const w = args.indexOf("--week");
+      const text = args.filter((_, i) => i !== w && i !== w + 1).join(" ");
+      const r = await api("/api/context", { text, week: w >= 0 ? args[w + 1] : "" });
+      console.log(`noted for the week of ${r.note.monday}${r.note.load ? ` (${r.note.load})` : ""}`);
+      break;
+    }
+    case "checkin": {
+      const r = await api("/api/courses/checkin", { dry: args.includes("--dry") });
+      console.log(r.message || r.why || JSON.stringify(r));
+      break;
+    }
     case "sync": console.log(JSON.stringify((await api("/api/sync", {})).sync)); break;
     case "serve": {   // what launchd, the Windows Startup entry and the Docker image run (systemd reads the settings itself)
       fs.mkdirSync(STATE, { recursive: true });

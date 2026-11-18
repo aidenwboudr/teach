@@ -39,6 +39,18 @@ log and a knowledge map for every topic, and makes the sheet, worksheet or deck 
   essay outlines), daily until an exam or spaced, plus Cram for exam week.
 - **Modes by purpose**: exam (sized to the days left), homework (parallel problems only, never the assigned
   one), writing (timed outlines and paragraphs; it edits, never writes for you), skill, curiosity.
+- **Whole courses, and programs of them**: the Courses tab takes a real course (its syllabus, lectures, readings,
+  graded work and exams, read from its own pages) and teaches it one unit at a time, each unit a topic of its own. A
+  program puts courses in order for a whole major or track: requirement slots (foundation, core, theme, capstone), a
+  free course behind each, prerequisites first, at a pace you set. Each course opens with a graded multiple-choice
+  pre-test, so the lessons cover only what you don't know yet, and its hours come from its own lecture time, reading
+  load and graded work. Written work is marked against the rubric by a grader that isn't your tutor; a real exam is one
+  timed, closed-book sitting, and a practice version (labelled so) can be retaken. A course stitched together from
+  several sources says so, and from where. A course "professor" reviews the evidence each week (scores, retention,
+  deadlines kept, the sessions you finish, your school load) and re-paces how you get there, never the exams; every
+  change is logged with its reason and can be undone. Deadlines can go on your calendar, and a weekly check-in can go
+  wherever `TEACH_CHECKIN_CMD` sends it. `examples/courses/` and `examples/programs/` have one of each (MIT's Minds and
+  Machines; a PPE major).
 - **Math and pictures**: LaTeX renders with KaTeX; the tutor draws diagrams as SVG and checks them before
   showing them; interactive HTML widgets run sandboxed.
 - **Optional screen mode** (Linux with Sway or another wlroots compositor only): with
@@ -166,6 +178,9 @@ changing it (`systemctl --user restart teach`, `launchctl kickstart -k gui/$(id 
 | `TEACH_LOCAL_KEY_ENV` | (none) | `local`: the name of the variable that holds that server's key, if it needs one |
 | `TEACH_CHROME` | found by itself (`chrome-headless-shell` first) | The browser that renders the tutor's diagrams and the PDFs the end-of-session actions make |
 | `TEACH_CALENDAR_CMD` | (none) | Adds a scheduled review session to your calendar: gets `TITLE "YYYY-MM-DD HH:MM" --for 30m --note TEXT [--remind 30m]`. Without it, the session gets an .ics download |
+| `TEACH_CALENDAR_MOVE_CMD` | (none) | Courses: moves an event the app added (gets the ID the add command printed in `[brackets]`, then `"YYYY-MM-DD HH:MM"`), so a re-paced deadline is moved, not added twice |
+| `TEACH_CHECKIN_CMD` | (none) | Courses: delivers the weekly check-in and a program's start to you: gets `MESSAGE --key KEY [--urgent]` (urgent: you're behind). Without it, check-ins show only in the app |
+| `TEACH_SCHOOL_CMD` | (none) | Courses: your school, as JSON, so the weekly load follows it. `weeks --from MONDAY --weeks N` prints `{"weeks": [{"monday", "exams", "due", "busyHours", "finals", "break", "labels": []}]}`; `open --from DAY --through DAY` prints `{"open": [{"course", "title", "due"}], "fresh": ISO}` (work not turned in yet, for a program that starts once it is) |
 | `TEACH_SYNC` | off | `git-pr`: when the learning folder is in a GitHub checkout, ship changes as a PR and squash-merge it (needs `gh`) |
 | `TEACH_BROWSER` | the system's opener | How `teach open` opens the app, e.g. `chromium --app={app}` |
 | `TEACH_OPEN_CMD` | (none) | With `{app}` windows: a command that opens clicked links in your own browser |
@@ -207,6 +222,12 @@ teach list                  topics and where each stands
 teach bring                 bring /teach sessions from other Claude Code chats into the app
 teach update|plan|step|cards <slug> '<json>'   keep a topic current from a chat outside the app
 teach sync                  with TEACH_SYNC=git-pr
+teach course import FILE.json [--replace]     add a course (examples/courses/)
+teach program import FILE.json [--replace]    add a program of courses (examples/programs/)
+teach courses               programs and courses, and where each stands
+teach program start <slug>  start a program now
+teach note "busy week, travelling" [--week YYYY-MM-DD]   a note the course professor reads (kept on this machine)
+teach checkin [--dry]       run the weekly course check-in now
 teach serve                 run the server in this terminal (with ~/.config/teach/env loaded)
 teach setup [--provider claude|codex|gemini|local] [--model NAME] [--demo] [--no-service] [--no-skill] [--no-check]
                             install or refresh
@@ -229,6 +250,11 @@ teach help
   it's arranged), a fold over the lesson's history and the learner's own board actions, so it can always be rebuilt.
 - `lib/transcript.mjs`: Claude Code transcripts → the lesson's history, and finding /teach sessions from other chats.
 - `lib/review.mjs`: the Leitner schedule (20 new items a day). `lib/screen.mjs`, `screen.md`: screen mode.
+- `lib/courses.mjs`: courses and programs (the store, hours, the schedule, a program's timeline, the gradebook, where a
+  course comes from); `lib/professor.mjs`: the rules that re-pace a course from the evidence, each small and tested on
+  recorded histories (`test/professor.test.mjs`); `lib/coursework.mjs`: what needs one model call (loading a course from
+  its pages, the pre-test, a real exam as question cards, a practice version, grading); `lib/courseapp.mjs`: their API,
+  exam sittings, a program's start rule and the check-in. `public/course.js` is the Courses tab.
 - `lib/platform.mjs`: what differs on Linux, macOS and Windows; `lib/setup.mjs`: `teach setup`.
 - `skill/SKILL.md`: the teaching method the tutor follows. A `skill/local.md` next to it, if you write one, is
   read first: put your own additions there (who you are, your courses' conventions) and keep `SKILL.md` as is.

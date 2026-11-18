@@ -1,0 +1,1477 @@
+{
+ "slug": "ppe",
+ "title": "Philosophy, Politics and Economics",
+ "kind": "major",
+ "model": "Modelled on Penn's PPE major: 16 course units (7 foundations, 3 core, a 5-course theme, 1 advanced course)",
+ "modelUrl": "https://ppe.sas.upenn.edu/study/curriculum",
+ "about": "A whole PPE major from free university courses, in the order they'd be taken: prerequisites first, one free course behind every slot. Content, not a credential.",
+ "theme": {
+  "name": "Capitalism, States and Institutions (political economy)",
+  "why": "Question: how do markets, states and social institutions shape each other, and why do they succeed or fail? HIST 202 (state formation in Europe), SOCY 151 (the social theory behind it), PLSC 270 (capitalism's evolution and reform), ECON 252 (finance as an institution) and 14.73 (institutions and evidence in poverty and policy) draw on history, sociology, political science and economics, as Penn requires more than one discipline. 14.75 as the capstone finishes the same question in a development setting. The learner's PLSC 270 and HIST 202 fit; ECON 252 and SOCY 151 are my choices."
+ },
+ "status": "active",
+ "pace": {
+  "hoursPerWeek": 6,
+  "concurrent": 1
+ },
+ "start": {
+  "kind": "manual"
+ },
+ "slots": [
+  {
+   "id": "philosophy",
+   "kind": "foundation",
+   "area": "Philosophy",
+   "requirement": "One philosophy course (Penn: a second PHIL foundation besides The Social Contract).",
+   "course": "minds-and-machines",
+   "candidate": {
+    "id": "mit-24-09x",
+    "code": "MIT 24.09x",
+    "title": "Minds and Machines",
+    "institution": "MIT",
+    "url": "https://openlearninglibrary.mit.edu/courses/course-v1:MITx+24.09x+3T2019/about",
+    "lectures": 25,
+    "videos": true,
+    "weeks": 12,
+    "kind": "reading",
+    "graded": {
+     "papers": true,
+     "midterm": true,
+     "final": true,
+     "solutions": true
+    }
+   },
+   "alternates": [
+    {
+     "id": "mit-24-00",
+     "code": "24.00",
+     "title": "Problems of Philosophy",
+     "institution": "MIT OpenCourseWare",
+     "instructors": [
+      "Miriam Schoenfield"
+     ],
+     "edition": "Fall 2019",
+     "url": "https://ocw.mit.edu/courses/24-00-problems-of-philosophy-fall-2019/",
+     "syllabus": "https://ocw.mit.edu/courses/24-00-problems-of-philosophy-fall-2019/pages/syllabus/",
+     "lectures": 25,
+     "videos": false,
+     "weeks": 13,
+     "hoursPerWeek": 3,
+     "kind": "reading",
+     "graded": {
+      "psets": false,
+      "papers": true,
+      "midterm": false,
+      "final": false,
+      "solutions": false,
+      "notes": "Four papers published (Paper 1-4; the syllabus has three 1,000-1,200 word papers, a Paper 1 rewrite and a 2,000-2,400 word final paper). Syllabus also lists quizzes (10%) and participation, which are NOT published. No exam, no solutions."
+     },
+     "prereqs": "There are no prerequisites for this course.",
+     "sources": [
+      {
+       "part": "lectures",
+       "title": "24.00",
+       "institution": "MIT OpenCourseWare",
+       "url": "https://ocw.mit.edu/courses/24-00-problems-of-philosophy-fall-2019/"
+      },
+      {
+       "part": "readings",
+       "title": "24.00",
+       "institution": "MIT OpenCourseWare",
+       "url": "https://ocw.mit.edu/courses/24-00-problems-of-philosophy-fall-2019/"
+      },
+      {
+       "part": "assignments",
+       "title": "24.00",
+       "institution": "MIT OpenCourseWare",
+       "url": "https://ocw.mit.edu/courses/24-00-problems-of-philosophy-fall-2019/"
+      },
+      {
+       "part": "exams",
+       "title": "24.00",
+       "institution": "MIT OpenCourseWare",
+       "url": "https://ocw.mit.edu/courses/24-00-problems-of-philosophy-fall-2019/"
+      }
+     ],
+     "note": ""
+    },
+    {
+     "id": "yale-phil-181",
+     "code": "PHIL 181",
+     "title": "Philosophy and the Science of Human Nature",
+     "institution": "Open Yale Courses",
+     "instructors": [
+      "Tamar Szabo Gendler"
+     ],
+     "edition": "Spring 2011",
+     "url": "https://oyc.yale.edu/philosophy/phil-181",
+     "syllabus": "https://oyc.yale.edu/philosophy/phil-181",
+     "lectures": 26,
+     "videos": true,
+     "weeks": 13,
+     "hoursPerWeek": 1.7,
+     "kind": "reading",
+     "graded": {
+      "psets": false,
+      "papers": true,
+      "midterm": false,
+      "final": true,
+      "solutions": false,
+      "notes": "Ten brief directed exercises (35%), two ~1,000-word essays, final exam (30%) with all questions distributed in advance. Published on lecture pages: 10 Directed Exercise PDFs, 3 Short Essay Topics PDFs, Final Exam Study Guide, 24 reading guides. No solutions or answer keys."
+     },
+     "prereqs": "None listed. (Page: students must do the readings, attend lecture and take part in weekly sections.)",
+     "sources": [
+      {
+       "part": "lectures",
+       "title": "PHIL 181",
+       "institution": "Open Yale Courses",
+       "url": "https://oyc.yale.edu/philosophy/phil-181"
+      },
+      {
+       "part": "readings",
+       "title": "PHIL 181",
+       "institution": "Open Yale Courses",
+       "url": "https://oyc.yale.edu/philosophy/phil-181"
+      },
+      {
+       "part": "assignments",
+       "title": "PHIL 181",
+       "institution": "Open Yale Courses",
+       "url": "https://oyc.yale.edu/philosophy/phil-181"
+      },
+      {
+       "part": "exams",
+       "title": "PHIL 181",
+       "institution": "Open Yale Courses",
+       "url": "https://oyc.yale.edu/philosophy/phil-181"
+      }
+     ],
+     "note": ""
+    }
+   ],
+   "after": [],
+   "why": "First: no prerequisites, and it trains the skill every later philosophy and politics course leans on: reconstructing and judging an argument.",
+   "order": 1
+  },
+  {
+   "id": "micro",
+   "kind": "foundation",
+   "area": "Microeconomics",
+   "requirement": "Intro microeconomics (Penn ECON 0100).",
+   "candidate": {
+    "id": "mit-14-01",
+    "code": "14.01",
+    "title": "Principles of Microeconomics",
+    "institution": "MIT OpenCourseWare",
+    "instructors": [
+     "Jonathan Gruber"
+    ],
+    "edition": "Fall 2023",
+    "url": "https://ocw.mit.edu/courses/14-01-principles-of-microeconomics-fall-2023/",
+    "syllabus": "https://ocw.mit.edu/courses/14-01-principles-of-microeconomics-fall-2023/pages/syllabus/",
+    "lectures": 26,
+    "videos": true,
+    "weeks": 13,
+    "hoursPerWeek": 3,
+    "kind": "math",
+    "graded": {
+     "psets": true,
+     "papers": false,
+     "midterm": true,
+     "final": true,
+     "solutions": true,
+     "notes": "8 problem sets with solutions (best 7 count, 25%); midterm 25% and 3-hour cumulative final 50%, each published with solutions (lists/exams page)."
+    },
+    "prereqs": "Some calculus at the level of 18.01 Single Variable Calculus will be used. Otherwise there are no prerequisites.",
+    "sources": [
+     {
+      "part": "lectures",
+      "title": "14.01",
+      "institution": "MIT OpenCourseWare",
+      "url": "https://ocw.mit.edu/courses/14-01-principles-of-microeconomics-fall-2023/"
+     },
+     {
+      "part": "readings",
+      "title": "14.01",
+      "institution": "MIT OpenCourseWare",
+      "url": "https://ocw.mit.edu/courses/14-01-principles-of-microeconomics-fall-2023/"
+     },
+     {
+      "part": "assignments",
+      "title": "14.01",
+      "institution": "MIT OpenCourseWare",
+      "url": "https://ocw.mit.edu/courses/14-01-principles-of-microeconomics-fall-2023/"
+     },
+     {
+      "part": "exams",
+      "title": "14.01",
+      "institution": "MIT OpenCourseWare",
+      "url": "https://ocw.mit.edu/courses/14-01-principles-of-microeconomics-fall-2023/"
+     }
+    ],
+    "note": ""
+   },
+   "alternates": [],
+   "after": [],
+   "why": "The gate course: game theory, behavioral economics, the capitalism and finance theme courses and the capstone all need it. Brush up single-variable derivatives first (it uses 18.01-level calculus).",
+   "order": 2
+  },
+  {
+   "id": "social-contract",
+   "kind": "foundation",
+   "area": "The Social Contract (philosophy)",
+   "requirement": "Penn requires PHIL 1433 The Social Contract.",
+   "candidate": {
+    "id": "yale-phil-181",
+    "code": "PHIL 181",
+    "title": "Philosophy and the Science of Human Nature",
+    "institution": "Open Yale Courses",
+    "instructors": [
+     "Tamar Szabo Gendler"
+    ],
+    "edition": "Spring 2011",
+    "url": "https://oyc.yale.edu/philosophy/phil-181",
+    "syllabus": "https://oyc.yale.edu/philosophy/phil-181",
+    "lectures": 26,
+    "videos": true,
+    "weeks": 13,
+    "hoursPerWeek": 1.7,
+    "kind": "reading",
+    "graded": {
+     "psets": false,
+     "papers": true,
+     "midterm": false,
+     "final": true,
+     "solutions": false,
+     "notes": "Ten brief directed exercises (35%), two ~1,000-word essays, final exam (30%) with all questions distributed in advance. Published on lecture pages: 10 Directed Exercise PDFs, 3 Short Essay Topics PDFs, Final Exam Study Guide, 24 reading guides. No solutions or answer keys."
+    },
+    "prereqs": "None listed. (Page: students must do the readings, attend lecture and take part in weekly sections.)",
+    "sources": [
+     {
+      "part": "lectures",
+      "title": "PHIL 181",
+      "institution": "Open Yale Courses",
+      "url": "https://oyc.yale.edu/philosophy/phil-181"
+     },
+     {
+      "part": "readings",
+      "title": "PHIL 181",
+      "institution": "Open Yale Courses",
+      "url": "https://oyc.yale.edu/philosophy/phil-181"
+     },
+     {
+      "part": "assignments",
+      "title": "PHIL 181",
+      "institution": "Open Yale Courses",
+      "url": "https://oyc.yale.edu/philosophy/phil-181"
+     },
+     {
+      "part": "exams",
+      "title": "PHIL 181",
+      "institution": "Open Yale Courses",
+      "url": "https://oyc.yale.edu/philosophy/phil-181"
+     }
+    ],
+    "note": "The closest free match: ethics, justice and political legitimacy. Penn's own course isn't online."
+   },
+   "alternates": [
+    {
+     "id": "mit-24-00",
+     "code": "24.00",
+     "title": "Problems of Philosophy",
+     "institution": "MIT OpenCourseWare",
+     "instructors": [
+      "Miriam Schoenfield"
+     ],
+     "edition": "Fall 2019",
+     "url": "https://ocw.mit.edu/courses/24-00-problems-of-philosophy-fall-2019/",
+     "syllabus": "https://ocw.mit.edu/courses/24-00-problems-of-philosophy-fall-2019/pages/syllabus/",
+     "lectures": 25,
+     "videos": false,
+     "weeks": 13,
+     "hoursPerWeek": 3,
+     "kind": "reading",
+     "graded": {
+      "psets": false,
+      "papers": true,
+      "midterm": false,
+      "final": false,
+      "solutions": false,
+      "notes": "Four papers published (Paper 1-4; the syllabus has three 1,000-1,200 word papers, a Paper 1 rewrite and a 2,000-2,400 word final paper). Syllabus also lists quizzes (10%) and participation, which are NOT published. No exam, no solutions."
+     },
+     "prereqs": "There are no prerequisites for this course.",
+     "sources": [
+      {
+       "part": "lectures",
+       "title": "24.00",
+       "institution": "MIT OpenCourseWare",
+       "url": "https://ocw.mit.edu/courses/24-00-problems-of-philosophy-fall-2019/"
+      },
+      {
+       "part": "readings",
+       "title": "24.00",
+       "institution": "MIT OpenCourseWare",
+       "url": "https://ocw.mit.edu/courses/24-00-problems-of-philosophy-fall-2019/"
+      },
+      {
+       "part": "assignments",
+       "title": "24.00",
+       "institution": "MIT OpenCourseWare",
+       "url": "https://ocw.mit.edu/courses/24-00-problems-of-philosophy-fall-2019/"
+      },
+      {
+       "part": "exams",
+       "title": "24.00",
+       "institution": "MIT OpenCourseWare",
+       "url": "https://ocw.mit.edu/courses/24-00-problems-of-philosophy-fall-2019/"
+      }
+     ],
+     "note": ""
+    }
+   ],
+   "after": [
+    "philosophy"
+   ],
+   "why": "Ethics, justice and legitimacy, after Minds and Machines has built the argument skills; it sets up political theory and policy.",
+   "order": 3
+  },
+  {
+   "id": "macro",
+   "kind": "foundation",
+   "area": "Macroeconomics",
+   "requirement": "Intro macroeconomics (Penn ECON 0200).",
+   "candidate": {
+    "id": "mit-14-02",
+    "code": "14.02",
+    "title": "Principles of Macroeconomics",
+    "institution": "MIT OpenCourseWare",
+    "instructors": [
+     "Ricardo Caballero"
+    ],
+    "edition": "Spring 2023",
+    "url": "https://ocw.mit.edu/courses/14-02-principles-of-macroeconomics-spring-2023/",
+    "syllabus": "https://ocw.mit.edu/courses/14-02-principles-of-macroeconomics-spring-2023/pages/syllabus/",
+    "lectures": 25,
+    "videos": true,
+    "weeks": 13,
+    "hoursPerWeek": 3,
+    "kind": "math",
+    "graded": {
+     "psets": true,
+     "papers": false,
+     "midterm": true,
+     "final": false,
+     "solutions": true,
+     "notes": "8 problem sets with solutions (25%); three quizzes (25% each; after lectures 10, 18 and at the end) with solutions (Quiz 2 solutions are inside the Quiz 2 PDF). No separate final: Quiz 3 is the end-of-term exam."
+    },
+    "prereqs": "There are no prerequisites for this course.",
+    "sources": [
+     {
+      "part": "lectures",
+      "title": "14.02",
+      "institution": "MIT OpenCourseWare",
+      "url": "https://ocw.mit.edu/courses/14-02-principles-of-macroeconomics-spring-2023/"
+     },
+     {
+      "part": "readings",
+      "title": "14.02",
+      "institution": "MIT OpenCourseWare",
+      "url": "https://ocw.mit.edu/courses/14-02-principles-of-macroeconomics-spring-2023/"
+     },
+     {
+      "part": "assignments",
+      "title": "14.02",
+      "institution": "MIT OpenCourseWare",
+      "url": "https://ocw.mit.edu/courses/14-02-principles-of-macroeconomics-spring-2023/"
+     },
+     {
+      "part": "exams",
+      "title": "14.02",
+      "institution": "MIT OpenCourseWare",
+      "url": "https://ocw.mit.edu/courses/14-02-principles-of-macroeconomics-spring-2023/"
+     }
+    ],
+    "note": ""
+   },
+   "alternates": [],
+   "after": [
+    "micro"
+   ],
+   "why": "No stated prerequisite, but it goes faster after micro; needed before the capitalism and finance theme courses and the capstone.",
+   "order": 4
+  },
+  {
+   "id": "political-theory",
+   "kind": "foundation",
+   "area": "Political theory",
+   "requirement": "One political theory course.",
+   "candidate": {
+    "id": "yale-plsc-114",
+    "code": "PLSC 114",
+    "title": "Introduction to Political Philosophy",
+    "institution": "Open Yale Courses",
+    "instructors": [
+     "Steven B. Smith"
+    ],
+    "edition": "Fall 2006",
+    "url": "https://oyc.yale.edu/political-science/plsc-114",
+    "syllabus": "https://oyc.yale.edu/political-science/plsc-114",
+    "lectures": 24,
+    "videos": true,
+    "weeks": 12,
+    "hoursPerWeek": 1.7,
+    "kind": "reading",
+    "graded": {
+     "psets": false,
+     "papers": true,
+     "midterm": false,
+     "final": true,
+     "solutions": false,
+     "notes": "Three 5-7 page papers (20% each), final exam (20%), section participation (20%). The assignments themselves are NOT published (no PDFs on any lecture page); only the syllabus grading policy."
+    },
+    "prereqs": "None listed.",
+    "sources": [
+     {
+      "part": "lectures",
+      "title": "PLSC 114",
+      "institution": "Open Yale Courses",
+      "url": "https://oyc.yale.edu/political-science/plsc-114",
+      "note": ""
+     },
+     {
+      "part": "readings",
+      "title": "PLSC 114",
+      "institution": "Open Yale Courses",
+      "url": "https://oyc.yale.edu/political-science/plsc-114",
+      "note": ""
+     },
+     {
+      "part": "assignments",
+      "generated": true,
+      "note": "Yale publishes only the syllabus's grading (three 5-7 page papers and a final), not the assignments: Teach generates them in that format."
+     },
+     {
+      "part": "exams",
+      "generated": true,
+      "note": "Yale publishes only the syllabus's grading (three 5-7 page papers and a final), not the assignments: Teach generates them in that format."
+     }
+    ],
+    "note": ""
+   },
+   "alternates": [],
+   "after": [
+    "social-contract"
+   ],
+   "why": "The canon (Plato to Tocqueville, with Hobbes, Locke and Rousseau at the centre) builds on the ethics course.",
+   "order": 5
+  },
+  {
+   "id": "psychology",
+   "kind": "foundation",
+   "area": "Psychology",
+   "requirement": "One psychology course.",
+   "candidate": {
+    "id": "mit-9-00sc",
+    "code": "9.00SC",
+    "title": "Introduction to Psychology (OCW Scholar)",
+    "institution": "MIT OpenCourseWare",
+    "instructors": [
+     "John Gabrieli"
+    ],
+    "edition": "Fall 2011",
+    "url": "https://ocw.mit.edu/courses/9-00sc-introduction-to-psychology-fall-2011/",
+    "syllabus": "https://ocw.mit.edu/courses/9-00sc-introduction-to-psychology-fall-2011/",
+    "lectures": 24,
+    "videos": true,
+    "weeks": null,
+    "hoursPerWeek": null,
+    "kind": "mixed",
+    "graded": {
+     "psets": false,
+     "papers": true,
+     "midterm": true,
+     "final": true,
+     "solutions": true,
+     "notes": "Three exams (Exam 1, Exam 2, Final) with solution keys and prior-year practice exams with solutions; writing assignments (e.g. child-development writing assignment 2); 'Check Yourself' questions and discussion content per session."
+    },
+    "prereqs": "",
+    "sources": [
+     {
+      "part": "lectures",
+      "title": "9.00SC",
+      "institution": "MIT OpenCourseWare",
+      "url": "https://ocw.mit.edu/courses/9-00sc-introduction-to-psychology-fall-2011/"
+     },
+     {
+      "part": "readings",
+      "title": "9.00SC",
+      "institution": "MIT OpenCourseWare",
+      "url": "https://ocw.mit.edu/courses/9-00sc-introduction-to-psychology-fall-2011/"
+     },
+     {
+      "part": "assignments",
+      "title": "9.00SC",
+      "institution": "MIT OpenCourseWare",
+      "url": "https://ocw.mit.edu/courses/9-00sc-introduction-to-psychology-fall-2011/"
+     },
+     {
+      "part": "exams",
+      "title": "9.00SC",
+      "institution": "MIT OpenCourseWare",
+      "url": "https://ocw.mit.edu/courses/9-00sc-introduction-to-psychology-fall-2011/"
+     }
+    ],
+    "note": ""
+   },
+   "alternates": [
+    {
+     "id": "yale-psyc-110",
+     "code": "PSYC 110",
+     "title": "Introduction to Psychology",
+     "institution": "Open Yale Courses",
+     "instructors": [
+      "Paul Bloom"
+     ],
+     "edition": "Spring 2007",
+     "url": "https://oyc.yale.edu/introduction-psychology/psyc-110",
+     "syllabus": "https://oyc.yale.edu/introduction-psychology/psyc-110",
+     "lectures": 20,
+     "videos": true,
+     "weeks": 10,
+     "hoursPerWeek": 2.5,
+     "kind": "mixed",
+     "graded": {
+      "psets": false,
+      "papers": true,
+      "midterm": true,
+      "final": true,
+      "solutions": true,
+      "notes": "Midterm (30%) with 2007 midterm + answer key, final (35%) PDF, 10 reading responses (15%) and one book review (20%) that are not published. Slides for all 20 lectures."
+     },
+     "prereqs": "None listed.",
+     "sources": [
+      {
+       "part": "lectures",
+       "title": "PSYC 110",
+       "institution": "Open Yale Courses",
+       "url": "https://oyc.yale.edu/introduction-psychology/psyc-110"
+      },
+      {
+       "part": "readings",
+       "title": "PSYC 110",
+       "institution": "Open Yale Courses",
+       "url": "https://oyc.yale.edu/introduction-psychology/psyc-110"
+      },
+      {
+       "part": "assignments",
+       "title": "PSYC 110",
+       "institution": "Open Yale Courses",
+       "url": "https://oyc.yale.edu/introduction-psychology/psyc-110"
+      },
+      {
+       "part": "exams",
+       "title": "PSYC 110",
+       "institution": "Open Yale Courses",
+       "url": "https://oyc.yale.edu/introduction-psychology/psyc-110"
+      }
+     ],
+     "note": ""
+    }
+   ],
+   "after": [],
+   "why": "No prerequisites; designed for self-study, with exams and keys. Needed before behavioral economics.",
+   "order": 6
+  },
+  {
+   "id": "strategic-reasoning",
+   "kind": "core",
+   "area": "Strategic reasoning (required)",
+   "requirement": "Penn PPE 3001 Strategic Reasoning, required; it needs ECON 0100.",
+   "candidate": {
+    "id": "yale-econ-159",
+    "code": "ECON 159",
+    "title": "Game Theory",
+    "institution": "Open Yale Courses",
+    "instructors": [
+     "Ben Polak"
+    ],
+    "edition": "Fall 2007",
+    "url": "https://oyc.yale.edu/economics/econ-159",
+    "syllabus": "https://oyc.yale.edu/economics/econ-159",
+    "lectures": 24,
+    "videos": true,
+    "weeks": 12,
+    "hoursPerWeek": 2.5,
+    "kind": "math",
+    "graded": {
+     "psets": true,
+     "papers": false,
+     "midterm": true,
+     "final": true,
+     "solutions": true,
+     "notes": "10 problem sets published as PDFs on lecture pages (30%), but NO problem-set solutions (only a 'Discussion of Linear-City Homework' and a 'Discussion of Duel'). Midterm 2007 + solutions, final 2007 + solutions (final: 'Partial Solutions' also on a lecture page), practice final, practice problems on asymmetric information with solutions, blackboard notes for all 24 lectures. Midterm 30%, final 40%."
+    },
+    "prereqs": "Introductory microeconomics (115 or equivalent) is required. Intermediate micro (150/2) is not required, but it is recommended. We will use calculus (mostly one variable) in this course.",
+    "sources": [
+     {
+      "part": "lectures",
+      "title": "ECON 159",
+      "institution": "Open Yale Courses",
+      "url": "https://oyc.yale.edu/economics/econ-159"
+     },
+     {
+      "part": "readings",
+      "title": "ECON 159",
+      "institution": "Open Yale Courses",
+      "url": "https://oyc.yale.edu/economics/econ-159"
+     },
+     {
+      "part": "assignments",
+      "title": "ECON 159",
+      "institution": "Open Yale Courses",
+      "url": "https://oyc.yale.edu/economics/econ-159"
+     },
+     {
+      "part": "exams",
+      "title": "ECON 159",
+      "institution": "Open Yale Courses",
+      "url": "https://oyc.yale.edu/economics/econ-159"
+     }
+    ],
+    "note": "10 problem sets without solutions (only the exams have them): the grader checks your sets."
+   },
+   "alternates": [],
+   "after": [
+    "micro"
+   ],
+   "why": "Its stated prerequisite is intro micro.",
+   "order": 7
+  },
+  {
+   "id": "political-science",
+   "kind": "foundation",
+   "area": "Political science (empirical)",
+   "requirement": "One political science course.",
+   "candidate": {
+    "id": "harvardx-us-government",
+    "code": "HarvardX US Government series",
+    "title": "U.S. Government (4 courses: Constitutional Foundations; Political Institutions; Citizen Politics in America; U.S. Public Policy)",
+    "institution": "Harvard / edX",
+    "instructors": [
+     "Thomas E. Patterson"
+    ],
+    "edition": "self-paced",
+    "url": "https://pll.harvard.edu/series/us-government",
+    "syllabus": "https://pll.harvard.edu/course/american-government-constitutional-foundations",
+    "lectures": 24,
+    "videos": true,
+    "weeks": null,
+    "hoursPerWeek": 3,
+    "kind": "mixed",
+    "graded": {
+     "psets": false,
+     "papers": false,
+     "midterm": false,
+     "final": false,
+     "solutions": false,
+     "notes": "Audit free; verified certificate $149 and graded work are paid. Patterson's faculty page (reported by search, not opened: it returns 403 to my fetcher) mentions 24 sessions of 20-30 min and a 144-question test bank. Graded work NOT confirmed for the free track."
+    },
+    "prereqs": "None listed; rated Introductory; 2 - 4 hours per week.",
+    "sources": [
+     {
+      "part": "lectures",
+      "title": "U.S. Government series",
+      "institution": "HarvardX",
+      "url": "https://pll.harvard.edu/series/us-government",
+      "note": "video lectures, free to audit"
+     },
+     {
+      "part": "readings",
+      "title": "17.20",
+      "institution": "MIT OpenCourseWare",
+      "url": "https://ocw.mit.edu/courses/17-20-introduction-to-the-american-political-process-fall-2020/",
+      "note": ""
+     },
+     {
+      "part": "assignments",
+      "title": "17.20",
+      "institution": "MIT OpenCourseWare",
+      "url": "https://ocw.mit.edu/courses/17-20-introduction-to-the-american-political-process-fall-2020/",
+      "note": ""
+     },
+     {
+      "part": "exams",
+      "title": "17.20",
+      "institution": "MIT OpenCourseWare",
+      "url": "https://ocw.mit.edu/courses/17-20-introduction-to-the-american-political-process-fall-2020/",
+      "note": "final with solutions"
+     }
+    ],
+    "note": "No single free course has both lectures on video and graded work with solutions: HarvardX's lectures, with MIT 17.20's readings, papers and final."
+   },
+   "alternates": [
+    {
+     "id": "mit-17-20-f20",
+     "code": "17.20",
+     "title": "Introduction to the American Political Process",
+     "institution": "MIT OpenCourseWare",
+     "instructors": [
+      "Asya Magazinnik",
+      "Zeyu Chris Peng"
+     ],
+     "edition": "Fall 2020",
+     "url": "https://ocw.mit.edu/courses/17-20-introduction-to-the-american-political-process-fall-2020/",
+     "syllabus": "https://ocw.mit.edu/courses/17-20-introduction-to-the-american-political-process-fall-2020/pages/syllabus/",
+     "lectures": null,
+     "videos": false,
+     "weeks": null,
+     "hoursPerWeek": 4,
+     "kind": "reading",
+     "graded": {
+      "psets": false,
+      "papers": true,
+      "midterm": false,
+      "final": true,
+      "solutions": true,
+      "notes": "Two papers (first with a draft), six reading responses, final exam 25% with published exam + exam solutions (resource types: Exams, Exam Solutions, Written Assignments with Examples)."
+     },
+     "prereqs": "There are no prerequisites for this course.",
+     "sources": [
+      {
+       "part": "lectures",
+       "title": "17.20",
+       "institution": "MIT OpenCourseWare",
+       "url": "https://ocw.mit.edu/courses/17-20-introduction-to-the-american-political-process-fall-2020/"
+      },
+      {
+       "part": "readings",
+       "title": "17.20",
+       "institution": "MIT OpenCourseWare",
+       "url": "https://ocw.mit.edu/courses/17-20-introduction-to-the-american-political-process-fall-2020/"
+      },
+      {
+       "part": "assignments",
+       "title": "17.20",
+       "institution": "MIT OpenCourseWare",
+       "url": "https://ocw.mit.edu/courses/17-20-introduction-to-the-american-political-process-fall-2020/"
+      },
+      {
+       "part": "exams",
+       "title": "17.20",
+       "institution": "MIT OpenCourseWare",
+       "url": "https://ocw.mit.edu/courses/17-20-introduction-to-the-american-political-process-fall-2020/"
+      }
+     ],
+     "note": ""
+    },
+    {
+     "id": "mit-17-50",
+     "code": "17.50",
+     "title": "Introduction to Comparative Politics",
+     "institution": "MIT OpenCourseWare",
+     "instructors": [
+      "Chappell Lawson"
+     ],
+     "edition": "Fall 2022",
+     "url": "https://ocw.mit.edu/courses/17-50-introduction-to-comparative-politics-fall-2022/",
+     "syllabus": "https://ocw.mit.edu/courses/17-50-introduction-to-comparative-politics-fall-2022/pages/syllabus/",
+     "lectures": 28,
+     "videos": false,
+     "weeks": 14,
+     "hoursPerWeek": 3,
+     "kind": "reading",
+     "graded": {
+      "psets": false,
+      "papers": true,
+      "midterm": false,
+      "final": true,
+      "solutions": false,
+      "notes": "Response papers 50%, map test 5%, presentations 15%, participation 15%, final exam 15%. Assignments page exists; no exams or solutions published (resource types: Lecture Notes, Readings, Written Assignments)."
+     },
+     "prereqs": "There are no prerequisites for this course.",
+     "sources": [
+      {
+       "part": "lectures",
+       "title": "17.50",
+       "institution": "MIT OpenCourseWare",
+       "url": "https://ocw.mit.edu/courses/17-50-introduction-to-comparative-politics-fall-2022/"
+      },
+      {
+       "part": "readings",
+       "title": "17.50",
+       "institution": "MIT OpenCourseWare",
+       "url": "https://ocw.mit.edu/courses/17-50-introduction-to-comparative-politics-fall-2022/"
+      },
+      {
+       "part": "assignments",
+       "title": "17.50",
+       "institution": "MIT OpenCourseWare",
+       "url": "https://ocw.mit.edu/courses/17-50-introduction-to-comparative-politics-fall-2022/"
+      },
+      {
+       "part": "exams",
+       "title": "17.50",
+       "institution": "MIT OpenCourseWare",
+       "url": "https://ocw.mit.edu/courses/17-50-introduction-to-comparative-politics-fall-2022/"
+      }
+     ],
+     "note": ""
+    }
+   ],
+   "after": [
+    "political-theory"
+   ],
+   "why": "Institutions, public opinion and elections: the empirical base the policy course needs.",
+   "order": 8
+  },
+  {
+   "id": "behavioral",
+   "kind": "core",
+   "area": "Behavioral economics",
+   "requirement": "Penn's third core: Behavioral Economics or Choice.",
+   "candidate": {
+    "id": "mit-14-13",
+    "code": "14.13",
+    "title": "Psychology and Economics",
+    "institution": "MIT OpenCourseWare",
+    "instructors": [
+     "Frank Schilbach"
+    ],
+    "edition": "Spring 2020",
+    "url": "https://ocw.mit.edu/courses/14-13-psychology-and-economics-spring-2020/",
+    "syllabus": "https://ocw.mit.edu/courses/14-13-psychology-and-economics-spring-2020/pages/syllabus/",
+    "lectures": 23,
+    "videos": true,
+    "weeks": 13,
+    "hoursPerWeek": 4,
+    "kind": "math",
+    "graded": {
+     "psets": true,
+     "papers": false,
+     "midterm": true,
+     "final": true,
+     "solutions": true,
+     "notes": "5 problem sets with solutions (25%), midterm 30% and cumulative final 40% (final replaces a lower midterm) both published with solutions, pop quiz with solutions, short quizzes (5%)."
+    },
+    "prereqs": "As the class is considering deviations from mainstream models of economics, a solid grasp of these models is essential for mastering the material. Therefore, 14.01 Principles of Microeconomics or an equivalent introductory microeconomics course is a prerequisite for this class.",
+    "sources": [
+     {
+      "part": "lectures",
+      "title": "14.13",
+      "institution": "MIT OpenCourseWare",
+      "url": "https://ocw.mit.edu/courses/14-13-psychology-and-economics-spring-2020/"
+     },
+     {
+      "part": "readings",
+      "title": "14.13",
+      "institution": "MIT OpenCourseWare",
+      "url": "https://ocw.mit.edu/courses/14-13-psychology-and-economics-spring-2020/"
+     },
+     {
+      "part": "assignments",
+      "title": "14.13",
+      "institution": "MIT OpenCourseWare",
+      "url": "https://ocw.mit.edu/courses/14-13-psychology-and-economics-spring-2020/"
+     },
+     {
+      "part": "exams",
+      "title": "14.13",
+      "institution": "MIT OpenCourseWare",
+      "url": "https://ocw.mit.edu/courses/14-13-psychology-and-economics-spring-2020/"
+     }
+    ],
+    "note": ""
+   },
+   "alternates": [],
+   "after": [
+    "micro",
+    "psychology"
+   ],
+   "why": "Stated prerequisite 14.01; psychology gives the other half.",
+   "order": 9
+  },
+  {
+   "id": "public-policy",
+   "kind": "core",
+   "area": "Public policy process (required)",
+   "requirement": "Penn PPE 3002 Public Policy Process, required.",
+   "candidate": {
+    "id": "mit-11-002j",
+    "code": "11.002J / 17.30J",
+    "title": "Making Public Policy",
+    "institution": "MIT OpenCourseWare",
+    "instructors": [
+     "Christopher Warshaw",
+     "Leah Stokes"
+    ],
+    "edition": "Fall 2014",
+    "url": "https://ocw.mit.edu/courses/11-002j-making-public-policy-fall-2014/",
+    "syllabus": "https://ocw.mit.edu/courses/11-002j-making-public-policy-fall-2014/pages/syllabus/",
+    "lectures": 26,
+    "videos": false,
+    "weeks": 13,
+    "hoursPerWeek": 4,
+    "kind": "reading",
+    "graded": {
+     "psets": false,
+     "papers": true,
+     "midterm": false,
+     "final": false,
+     "solutions": false,
+     "notes": "Four papers (health care reform, gun control, strategic choices in policy change, climate change) with student example papers, plus a group oral final project. No exams, no solutions, no problem sets. Grading: papers 10/15/20/20, oral project 10, participation 25."
+    },
+    "prereqs": "None.",
+    "sources": [
+     {
+      "part": "lectures",
+      "title": "U.S. Public Policy",
+      "institution": "HarvardX",
+      "url": "https://pll.harvard.edu/course/us-public-policy-social-economic-and-foreign-policies",
+      "note": "video lectures"
+     },
+     {
+      "part": "readings",
+      "title": "11.002J / 17.30J",
+      "institution": "MIT OpenCourseWare",
+      "url": "https://ocw.mit.edu/courses/11-002j-making-public-policy-fall-2014/",
+      "note": ""
+     },
+     {
+      "part": "assignments",
+      "title": "11.002J / 17.30J",
+      "institution": "MIT OpenCourseWare",
+      "url": "https://ocw.mit.edu/courses/11-002j-making-public-policy-fall-2014/",
+      "note": "four policy papers, with sample papers"
+     },
+     {
+      "part": "exams",
+      "generated": true,
+      "note": "11.002J has no exams: a generated final, labelled so"
+     }
+    ],
+    "note": "MIT 11.002J has papers and readings but no videos or exams: lectures from HarvardX U.S. Public Policy."
+   },
+   "alternates": [
+    {
+     "id": "harvardx-us-public-policy",
+     "code": "edX U.S. Public Policy",
+     "title": "U.S. Public Policy: Social, Economic, and Foreign Policies",
+     "institution": "Harvard / edX",
+     "instructors": [
+      "Thomas E. Patterson"
+     ],
+     "edition": "self-paced",
+     "url": "https://pll.harvard.edu/course/us-public-policy-social-economic-and-foreign-policies",
+     "syllabus": "https://pll.harvard.edu/course/us-public-policy-social-economic-and-foreign-policies",
+     "lectures": 6,
+     "videos": true,
+     "weeks": null,
+     "hoursPerWeek": 3,
+     "kind": "mixed",
+     "graded": {
+      "psets": false,
+      "papers": false,
+      "midterm": false,
+      "final": false,
+      "solutions": false,
+      "notes": "Audit free; certificate $149. Graded work not confirmed for the free track."
+     },
+     "prereqs": "None listed; Introductory; 2-4 hours/week.",
+     "sources": [
+      {
+       "part": "lectures",
+       "title": "U.S. Public Policy",
+       "institution": "HarvardX",
+       "url": "https://pll.harvard.edu/course/us-public-policy-social-economic-and-foreign-policies"
+      },
+      {
+       "part": "readings",
+       "title": "U.S. Public Policy",
+       "institution": "HarvardX",
+       "url": "https://pll.harvard.edu/course/us-public-policy-social-economic-and-foreign-policies"
+      },
+      {
+       "part": "assignments",
+       "title": "U.S. Public Policy",
+       "institution": "HarvardX",
+       "url": "https://pll.harvard.edu/course/us-public-policy-social-economic-and-foreign-policies"
+      },
+      {
+       "part": "exams",
+       "title": "U.S. Public Policy",
+       "institution": "HarvardX",
+       "url": "https://pll.harvard.edu/course/us-public-policy-social-economic-and-foreign-policies"
+      }
+     ],
+     "note": ""
+    }
+   ],
+   "after": [
+    "political-science",
+    "political-theory"
+   ],
+   "why": "Uses American institutions and political theory, so it comes after both.",
+   "order": 10
+  },
+  {
+   "id": "theme-1",
+   "kind": "theme",
+   "area": "Theme: Capitalism, States and Institutions",
+   "requirement": "Five theme courses from more than one discipline.",
+   "candidate": {
+    "id": "yale-hist-202",
+    "code": "HIST 202",
+    "title": "European Civilization, 1648-1945",
+    "institution": "Open Yale Courses",
+    "instructors": [
+     "John Merriman"
+    ],
+    "edition": "Fall 2008",
+    "url": "https://oyc.yale.edu/history/hist-202",
+    "syllabus": "https://oyc.yale.edu/history/hist-202",
+    "lectures": 24,
+    "videos": true,
+    "weeks": 12,
+    "hoursPerWeek": 1.7,
+    "kind": "reading",
+    "graded": {
+     "psets": false,
+     "papers": true,
+     "midterm": true,
+     "final": true,
+     "solutions": false,
+     "notes": "Midterm, final and a 6-8 page paper weighted equally. None of it published; syllabus only."
+    },
+    "prereqs": "None listed.",
+    "sources": [
+     {
+      "part": "lectures",
+      "title": "HIST 202",
+      "institution": "Open Yale Courses",
+      "url": "https://oyc.yale.edu/history/hist-202",
+      "note": ""
+     },
+     {
+      "part": "readings",
+      "title": "HIST 202",
+      "institution": "Open Yale Courses",
+      "url": "https://oyc.yale.edu/history/hist-202",
+      "note": ""
+     },
+     {
+      "part": "assignments",
+      "generated": true,
+      "note": "Yale publishes the syllabus only (midterm, final, a 6-8 page paper): Teach generates them in that format."
+     },
+     {
+      "part": "exams",
+      "generated": true,
+      "note": "Yale publishes the syllabus only (midterm, final, a 6-8 page paper): Teach generates them in that format."
+     }
+    ],
+    "note": ""
+   },
+   "alternates": [],
+   "after": [],
+   "why": "History first: how European states formed gives the theme its context.",
+   "order": 11
+  },
+  {
+   "id": "theme-2",
+   "kind": "theme",
+   "area": "Theme: Capitalism, States and Institutions",
+   "requirement": "Theme course.",
+   "candidate": {
+    "id": "yale-socy-151",
+    "code": "SOCY 151",
+    "title": "Foundations of Modern Social Theory",
+    "institution": "Open Yale Courses",
+    "instructors": [
+     "Ivan Szelenyi"
+    ],
+    "edition": "Fall 2009",
+    "url": "https://oyc.yale.edu/sociology/socy-151",
+    "syllabus": "https://oyc.yale.edu/sociology/socy-151",
+    "lectures": 25,
+    "videos": true,
+    "weeks": 13,
+    "hoursPerWeek": 1.7,
+    "kind": "reading",
+    "graded": {
+     "psets": false,
+     "papers": true,
+     "midterm": true,
+     "final": false,
+     "solutions": false,
+     "notes": "Three take-home tests (20% each) with 2-page answers, one 6-8 page essay (30%), section participation 10%. Nothing published beyond the syllabus."
+    },
+    "prereqs": "None listed.",
+    "sources": [
+     {
+      "part": "lectures",
+      "title": "SOCY 151",
+      "institution": "Open Yale Courses",
+      "url": "https://oyc.yale.edu/sociology/socy-151",
+      "note": ""
+     },
+     {
+      "part": "readings",
+      "title": "SOCY 151",
+      "institution": "Open Yale Courses",
+      "url": "https://oyc.yale.edu/sociology/socy-151",
+      "note": ""
+     },
+     {
+      "part": "assignments",
+      "generated": true,
+      "note": "Three take-home tests and an essay, generated in the syllabus's format."
+     },
+     {
+      "part": "exams",
+      "generated": true,
+      "note": "Three take-home tests and an essay, generated in the syllabus's format."
+     }
+    ],
+    "note": ""
+   },
+   "alternates": [],
+   "after": [
+    "theme-1"
+   ],
+   "why": "Classical social theory (Hobbes to Weber) bridges the philosophy courses and the capitalism course.",
+   "order": 12
+  },
+  {
+   "id": "theme-3",
+   "kind": "theme",
+   "area": "Theme: Capitalism, States and Institutions",
+   "requirement": "Theme course.",
+   "candidate": {
+    "id": "yale-plsc-270",
+    "code": "PLSC 270",
+    "title": "Capitalism: Success, Crisis, and Reform",
+    "institution": "Open Yale Courses",
+    "instructors": [
+     "Douglas W. Rae"
+    ],
+    "edition": "Fall 2009",
+    "url": "https://oyc.yale.edu/political-science/plsc-270",
+    "syllabus": "https://oyc.yale.edu/political-science/plsc-270",
+    "lectures": 24,
+    "videos": true,
+    "weeks": 12,
+    "hoursPerWeek": 1.7,
+    "kind": "reading",
+    "graded": {
+     "psets": false,
+     "papers": true,
+     "midterm": true,
+     "final": true,
+     "solutions": false,
+     "notes": "Three memos of 800-1,000 words (10% each), midterm 20%, final 40%, participation 10%. No assignments, exams or solutions are published, only the syllabus."
+    },
+    "prereqs": "None listed (page: reading in advance is important; sections presume preparation).",
+    "sources": [
+     {
+      "part": "lectures",
+      "title": "PLSC 270",
+      "institution": "Open Yale Courses",
+      "url": "https://oyc.yale.edu/political-science/plsc-270",
+      "note": ""
+     },
+     {
+      "part": "readings",
+      "title": "PLSC 270",
+      "institution": "Open Yale Courses",
+      "url": "https://oyc.yale.edu/political-science/plsc-270",
+      "note": ""
+     },
+     {
+      "part": "assignments",
+      "generated": true,
+      "note": "Three memos, a midterm and a final, generated in the syllabus's format."
+     },
+     {
+      "part": "exams",
+      "generated": true,
+      "note": "Three memos, a midterm and a final, generated in the syllabus's format."
+     }
+    ],
+    "note": ""
+   },
+   "alternates": [],
+   "after": [
+    "micro",
+    "macro",
+    "theme-1",
+    "theme-2"
+   ],
+   "why": "Capitalism's success, crises and reform, using the economics and the Smith/Marx/Weber background.",
+   "order": 13
+  },
+  {
+   "id": "theme-4",
+   "kind": "theme",
+   "area": "Theme: Capitalism, States and Institutions",
+   "requirement": "Theme course.",
+   "candidate": {
+    "id": "yale-econ-252",
+    "code": "ECON 252",
+    "title": "Financial Markets (2011)",
+    "institution": "Open Yale Courses",
+    "instructors": [
+     "Robert J. Shiller"
+    ],
+    "edition": "Spring 2011",
+    "url": "https://oyc.yale.edu/economics/econ-252",
+    "syllabus": "https://oyc.yale.edu/economics/econ-252-11/",
+    "lectures": 23,
+    "videos": true,
+    "weeks": 12,
+    "hoursPerWeek": 2.5,
+    "kind": "math",
+    "graded": {
+     "psets": true,
+     "papers": false,
+     "midterm": true,
+     "final": true,
+     "solutions": true,
+     "notes": "6 problem sets with solutions (10%), 2 midterms each with practice exam + solutions and exam + solutions (20% and 30%), final 40%; 22 multiple-choice quizzes with answer keys; slides."
+    },
+    "prereqs": "Some facility with elementary algebra and calculus required.",
+    "sources": [
+     {
+      "part": "lectures",
+      "title": "ECON 252",
+      "institution": "Open Yale Courses",
+      "url": "https://oyc.yale.edu/economics/econ-252"
+     },
+     {
+      "part": "readings",
+      "title": "ECON 252",
+      "institution": "Open Yale Courses",
+      "url": "https://oyc.yale.edu/economics/econ-252"
+     },
+     {
+      "part": "assignments",
+      "title": "ECON 252",
+      "institution": "Open Yale Courses",
+      "url": "https://oyc.yale.edu/economics/econ-252"
+     },
+     {
+      "part": "exams",
+      "title": "ECON 252",
+      "institution": "Open Yale Courses",
+      "url": "https://oyc.yale.edu/economics/econ-252"
+     }
+    ],
+    "note": ""
+   },
+   "alternates": [],
+   "after": [
+    "micro",
+    "macro"
+   ],
+   "why": "Finance as an institution; the theme course with the most published graded work (problem sets, two midterms and a final, all with solutions).",
+   "order": 14
+  },
+  {
+   "id": "theme-5",
+   "kind": "theme",
+   "area": "Theme: Capitalism, States and Institutions",
+   "requirement": "Theme course.",
+   "candidate": {
+    "id": "mit-14-73",
+    "code": "14.73",
+    "title": "The Challenge of World Poverty",
+    "institution": "MIT OpenCourseWare",
+    "instructors": [
+     "Esther Duflo",
+     "Abhijit Banerjee"
+    ],
+    "edition": "Spring 2011",
+    "url": "https://ocw.mit.edu/courses/14-73-the-challenge-of-world-poverty-spring-2011/",
+    "syllabus": "https://ocw.mit.edu/courses/14-73-the-challenge-of-world-poverty-spring-2011/pages/syllabus/",
+    "lectures": 26,
+    "videos": true,
+    "weeks": 13,
+    "hoursPerWeek": 4,
+    "kind": "mixed",
+    "graded": {
+     "psets": false,
+     "papers": true,
+     "midterm": false,
+     "final": true,
+     "solutions": true,
+     "notes": "Ten essay assignments with sample student essays (30%), pop quizzes with solutions (30%), final exam (40%; exams page published). Used for the theme because it ends on political economy and policy."
+    },
+    "prereqs": "There are no prerequisites for this course.",
+    "sources": [
+     {
+      "part": "lectures",
+      "title": "14.73",
+      "institution": "MIT OpenCourseWare",
+      "url": "https://ocw.mit.edu/courses/14-73-the-challenge-of-world-poverty-spring-2011/"
+     },
+     {
+      "part": "readings",
+      "title": "14.73",
+      "institution": "MIT OpenCourseWare",
+      "url": "https://ocw.mit.edu/courses/14-73-the-challenge-of-world-poverty-spring-2011/"
+     },
+     {
+      "part": "assignments",
+      "title": "14.73",
+      "institution": "MIT OpenCourseWare",
+      "url": "https://ocw.mit.edu/courses/14-73-the-challenge-of-world-poverty-spring-2011/"
+     },
+     {
+      "part": "exams",
+      "title": "14.73",
+      "institution": "MIT OpenCourseWare",
+      "url": "https://ocw.mit.edu/courses/14-73-the-challenge-of-world-poverty-spring-2011/"
+     }
+    ],
+    "note": ""
+   },
+   "alternates": [],
+   "after": [
+    "micro"
+   ],
+   "why": "Institutions and evidence in poverty and policy; it leads into the capstone.",
+   "order": 15
+  },
+  {
+   "id": "statistics",
+   "kind": "prereq",
+   "area": "Statistics (before the capstone)",
+   "requirement": "Penn asks for formal reasoning or data analysis; the capstone needs statistics (MIT 14.30 or equivalent). Not one of the 16.",
+   "counts": false,
+   "candidate": {
+    "id": "mit-18-05",
+    "code": "18.05",
+    "title": "Introduction to Probability and Statistics",
+    "institution": "MIT OpenCourseWare",
+    "instructors": [],
+    "edition": "Spring 2022",
+    "url": "https://ocw.mit.edu/courses/18-05-introduction-to-probability-and-statistics-spring-2022/",
+    "syllabus": "https://ocw.mit.edu/courses/18-05-introduction-to-probability-and-statistics-spring-2022/pages/syllabus/",
+    "lectures": null,
+    "videos": false,
+    "weeks": null,
+    "hoursPerWeek": null,
+    "kind": "math",
+    "graded": {
+     "psets": true,
+     "papers": false,
+     "midterm": true,
+     "final": true,
+     "solutions": true,
+     "notes": "Landing page resource types: Exams, Exam Solutions, Problem Sets, Problem Set Solutions, Lecture Notes, Readings, R tutorials. No lecture videos listed."
+    },
+    "prereqs": "",
+    "sources": [
+     {
+      "part": "lectures",
+      "title": "18.05",
+      "institution": "MIT OpenCourseWare",
+      "url": "https://ocw.mit.edu/courses/18-05-introduction-to-probability-and-statistics-spring-2022/"
+     },
+     {
+      "part": "readings",
+      "title": "18.05",
+      "institution": "MIT OpenCourseWare",
+      "url": "https://ocw.mit.edu/courses/18-05-introduction-to-probability-and-statistics-spring-2022/"
+     },
+     {
+      "part": "assignments",
+      "title": "18.05",
+      "institution": "MIT OpenCourseWare",
+      "url": "https://ocw.mit.edu/courses/18-05-introduction-to-probability-and-statistics-spring-2022/"
+     },
+     {
+      "part": "exams",
+      "title": "18.05",
+      "institution": "MIT OpenCourseWare",
+      "url": "https://ocw.mit.edu/courses/18-05-introduction-to-probability-and-statistics-spring-2022/"
+     }
+    ],
+    "note": ""
+   },
+   "alternates": [],
+   "after": [],
+   "why": "The capstone runs regressions in Stata on real data: this is the statistics it assumes.",
+   "order": 16
+  },
+  {
+   "id": "capstone",
+   "kind": "capstone",
+   "area": "Advanced interdisciplinary course",
+   "requirement": "At least one PPE 4500+ advanced seminar.",
+   "candidate": {
+    "id": "mit-14-75",
+    "code": "14.75",
+    "title": "Political Economy and Economic Development",
+    "institution": "MIT OpenCourseWare",
+    "instructors": [
+     "Benjamin Olken"
+    ],
+    "edition": "Fall 2012",
+    "url": "https://ocw.mit.edu/courses/14-75-political-economy-and-economic-development-fall-2012/",
+    "syllabus": "https://ocw.mit.edu/courses/14-75-political-economy-and-economic-development-fall-2012/pages/syllabus/",
+    "lectures": 26,
+    "videos": false,
+    "weeks": 13,
+    "hoursPerWeek": 4,
+    "kind": "math",
+    "graded": {
+     "psets": true,
+     "papers": false,
+     "midterm": true,
+     "final": true,
+     "solutions": false,
+     "notes": "6 problem sets (Stata with datasets; lowest dropped; 30%), in-class midterm 30%, final 40%. OCW publishes problem sets and lecture/recitation notes only: no solutions, no exam files (resource types Lecture Notes, Problem Sets)."
+    },
+    "prereqs": "The prerequisites for the class are 14.01 (introductory microeconomics) and 14.30 (statistics for economics), or the equivalent. ... it is recommended but not required that you have either already taken econometrics (14.32 or equivalent) or be taking it currently.",
+    "sources": [
+     {
+      "part": "lectures",
+      "title": "14.75",
+      "institution": "MIT OpenCourseWare",
+      "url": "https://ocw.mit.edu/courses/14-75-political-economy-and-economic-development-fall-2012/",
+      "note": "lecture notes, no video"
+     },
+     {
+      "part": "readings",
+      "title": "14.75",
+      "institution": "MIT OpenCourseWare",
+      "url": "https://ocw.mit.edu/courses/14-75-political-economy-and-economic-development-fall-2012/",
+      "note": ""
+     },
+     {
+      "part": "assignments",
+      "title": "14.75",
+      "institution": "MIT OpenCourseWare",
+      "url": "https://ocw.mit.edu/courses/14-75-political-economy-and-economic-development-fall-2012/",
+      "note": "six problem sets with data, no solutions"
+     },
+     {
+      "part": "exams",
+      "generated": true,
+      "note": "MIT publishes no exams: generated midterm and final, labelled so"
+     }
+    ],
+    "note": ""
+   },
+   "alternates": [],
+   "after": [
+    "micro",
+    "macro",
+    "statistics",
+    "theme-5"
+   ],
+   "why": "Political economy and development: the theme's question, answered with the economics, the politics and the data together.",
+   "order": 17
+  }
+ ]
+}

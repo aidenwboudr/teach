@@ -24,6 +24,7 @@ import { command } from "./lib/platform.mjs";
 import { withFigureKit, checkHtml } from "./lib/figures.mjs";
 import * as visualize from "./lib/visualize.mjs";
 import { renderFigure } from "./lib/figure-render.mjs";
+import { createCourses } from "./lib/courseapp.mjs";
 
 process.removeAllListeners("warning");            // node:sqlite's ExperimentalWarning, once per process
 
@@ -70,6 +71,7 @@ const afterTurn = new Map();      // slug → note for a new turn once this one 
 engine.onTurnEnd = (slug, l) => {
   if (l.quiet && store.getTopic(slug)?.settings.voice !== false) noteFor(slug, store.getRuntime(slug).live ? QUIET_STRETCH : QUIET_NOTE);
   if (jobs.has(slug)) jobEnded(slug);
+  courses.onTurnEnd(slug);
   if (!jobs.has(slug) && jobQueue.get(slug)?.length) return pump(slug);   // the next action the learner asked for (a close waits for them)
   if (closeAfter.delete(slug)) { afterTurn.delete(slug); return engine.close(slug); }
   if (afterTurn.has(slug)) { const note = afterTurn.get(slug); afterTurn.delete(slug); return turn(slug, [{ type: "text", text: note }]); }
@@ -541,7 +543,7 @@ function summary(t, due) {
     next: t.next, lastActive: lastActive(t), review: t.settings.review !== false, due: due[t.slug] || 0,
     progress: { total: plan.length, done: plan.filter((n) => n.status === "done").length, shaky: plan.filter((n) => n.status === "shaky").length,
       steps: plan.map((n) => n.status), current: cur ? { id: cur.id, title: cur.title } : null },
-    pending, ...engine.status(t.slug), streaming: undefined,
+    pending, unit: t.unit || null, ...engine.status(t.slug), streaming: undefined,
   };
 }
 
@@ -594,10 +596,11 @@ function turn(slug, content = [], opts = {}) {
     if (t.sessions.length) boardNotes.set(slug, [BOARD_INTRO, ...(boardNotes.get(slug) || [])]);
   }
   const done = boardNotes.get(slug);
+  const prof = courseNotes.get(slug) || []; courseNotes.delete(slug);
   const said = content.map((c) => c.text || "").join("\n");
   // (an end-of-session action is made in Teach, not on their screen: no "run it with the screen guide's loop")
   const starting = !engine.isAlive(slug) && t.settings.screen && !opts.action && !said.startsWith("[Teach app] screen") ? [SCREEN_STATE] : [];
-  const pre = [...starting, ...(live ? notes.get(slug) || [] : []), ...(done?.length ? [`[Teach app] board\n${done.join("\n")}`] : [])].map((text) => ({ type: "text", text }));
+  const pre = [...starting, ...(live ? notes.get(slug) || [] : []), ...(done?.length ? [`[Teach app] board\n${done.join("\n")}`] : []), ...prof].map((text) => ({ type: "text", text }));
   notes.delete(slug); boardNotes.delete(slug);
   if (engine.isAlive(slug)) return engine.send(slug, [...pre, ...(content.length ? content : [{ type: "text", text: `[Teach app] back\n${Learner} is here. Continue.` }])]);
   const how = engine.plan(slug, opts);
@@ -605,6 +608,18 @@ function turn(slug, content = [], opts = {}) {
   if (t.status === "paused" && !opts.action) store.mutateTopic(slug, (x) => { x.status = "active"; });   // (making something isn't resuming the lesson)
   return engine.send(slug, [...(note ? [{ type: "text", text: note }] : []), ...pre, ...content], { how });
 }
+
+// ---------- courses and programs (lib/courseapp.mjs) ----------
+
+// A course's units are topics; the professor's changes reach a unit's tutor as a note on its next turn.
+const courseNotes = new Map();   // topic slug → [text]
+const courses = createCourses({
+  turn, emit, broadcast: (ev) => broadcast(null, ev), calendarCmd: CALENDAR_CMD, provider: PROVIDER.id,
+  noteFor: (slug, text) => { const n = courseNotes.get(slug) || []; if (!n.includes(text)) n.push(text); courseNotes.set(slug, n); },
+});
+const courseTick = () => courses.tick().catch((e) => console.error("teach: courses:", e.message));
+setTimeout(courseTick, 60e3).unref();
+setInterval(courseTick, 10 * 60e3).unref();
 
 // ---------- importing a session that ran elsewhere ----------
 
@@ -707,7 +722,7 @@ async function route(req, res) {
   const p = url.pathname, m = req.method;
   let mm;
 
-  if (m === "GET" && (p === "/" || /^\/(t\/[a-z0-9-]+(\/(review|notes|files|transcript))?|review|profile|new)\/?$/.test(p))) return serveFile(res, path.join(PUBLIC, "index.html"));
+  if (m === "GET" && (p === "/" || /^\/(t\/[a-z0-9-]+(\/(review|notes|files|transcript))?|review|profile|new|courses(\/[a-z0-9/-]*)?)\/?$/.test(p))) return serveFile(res, path.join(PUBLIC, "index.html"));
   if (m === "GET" && p === "/style-tokens.css") { res.writeHead(200, { "Content-Type": "text/css; charset=utf-8", "Cache-Control": "no-cache" }); return res.end(tokensCss()); }
   if (m === "GET" && !p.startsWith("/api/")) {
     const f = path.join(PUBLIC, path.normalize(p).replace(/^(\.\.[/\\])+/, ""));
@@ -731,6 +746,8 @@ async function route(req, res) {
     req.on("close", () => { clearInterval(ping); clients.delete(c); });
     return;
   }
+
+  if (await courses.route(req, res, url, readBody)) return;
 
   if (m === "GET" && p === "/api/home") {
     const due = review.counts();

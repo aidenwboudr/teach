@@ -1,0 +1,613 @@
+{
+ "slug": "minds-and-machines",
+ "title": "Minds and Machines",
+ "code": "MIT 24.09x",
+ "institution": "MIT",
+ "instructors": [
+  "Alex Byrne",
+  "Cosmo Grant"
+ ],
+ "edition": "MIT Open Learning Library 24.09x (2019 run, self-paced), with the written argument analyses from MIT OpenCourseWare 24.09 (Fall 2011, Byrne)",
+ "url": "https://openlearninglibrary.mit.edu/courses/course-v1:MITx+24.09x+3T2019/about",
+ "summary": "An introduction to the philosophy of mind: can a computer think (Searle's Chinese Room, the Turing test), what the mind is (dualism, behaviorism, the identity theory, functionalism), whether mental content is in the head, perception and colour, and consciousness (Nagel, Jackson, Chalmers). 12 weeks, 25 lectures in five parts.",
+ "hours": {
+  "kind": "reading",
+  "lectureMinutes": 50,
+  "pagesPerHour": 15
+ },
+ "sources": [
+  {
+   "part": "lectures",
+   "title": "24.09x (2019)",
+   "institution": "MIT Open Learning Library",
+   "url": "https://openlearninglibrary.mit.edu/courses/course-v1:MITx+24.09x+3T2019/course/"
+  },
+  {
+   "part": "readings",
+   "title": "24.09x (2019)",
+   "institution": "MIT Open Learning Library",
+   "url": "https://openlearninglibrary.mit.edu/courses/course-v1:MITx+24.09x+3T2019/course/"
+  },
+  {
+   "part": "assignments",
+   "title": "24.09x (2019)",
+   "institution": "MIT Open Learning Library",
+   "url": "https://openlearninglibrary.mit.edu/courses/course-v1:MITx+24.09x+3T2019/course/"
+  },
+  {
+   "part": "assignments",
+   "title": "24.09 (Fall 2011)",
+   "institution": "MIT OpenCourseWare",
+   "url": "https://ocw.mit.edu/courses/24-09-minds-and-machines-fall-2011/pages/assignments/"
+  },
+  {
+   "part": "exams",
+   "title": "24.09x (2019)",
+   "institution": "MIT Open Learning Library",
+   "url": "https://openlearninglibrary.mit.edu/courses/course-v1:MITx+24.09x+3T2019/course/"
+  }
+ ],
+ "units": [
+  {
+   "n": 1,
+   "title": "Minds and Computers",
+   "summary": "Strong AI, Searle's Chinese Room and replies, intentionality, validity/soundness, Turing machines and the Turing Test.",
+   "lectures": [
+    {
+     "n": 1,
+     "title": "Introduction",
+     "url": "https://www.youtube.com/watch?v=kMKcDRDtQ0U",
+     "slides": "https://openlearninglibrary.mit.edu/assets/courseware/v1/3d9923be4bc6d25fdcbce074a6f9ed6a/asset-v1:MITx+24.09x+3T2019+type@asset+block/24.09x_Lecture_1_Slides.pdf"
+    },
+    {
+     "n": 2,
+     "title": "The Chinese Room",
+     "url": "https://www.youtube.com/watch?v=beop_HMCs10",
+     "slides": "https://openlearninglibrary.mit.edu/assets/courseware/v1/88827ba629b85e9e6b9c41b230b00314/asset-v1:MITx+24.09x+3T2019+type@asset+block/24.09x_Lecture_2_Slides.pdf"
+    },
+    {
+     "n": 3,
+     "title": "The Chinese Room, Continued; Arguments",
+     "url": "",
+     "slides": "https://openlearninglibrary.mit.edu/assets/courseware/v1/b9926ec4c725952bd864f1508afc5b3a/asset-v1:MITx+24.09x+3T2019+type@asset+block/24.09x_Lecture_3_Slides.pdf"
+    },
+    {
+     "n": 4,
+     "title": "The Chinese Room, Continued",
+     "url": "",
+     "slides": "https://openlearninglibrary.mit.edu/assets/courseware/v1/474fc0b4cdde35d56e5d6cd4a48f014b/asset-v1:MITx+24.09x+3T2019+type@asset+block/24.09x_Lecture_4_Slides.pdf"
+    },
+    {
+     "n": 5,
+     "title": "Turing Machines and the Turing Test",
+     "url": "",
+     "slides": "https://openlearninglibrary.mit.edu/assets/courseware/v1/6c7048300085fdb2376959c1ac97fae2/asset-v1:MITx+24.09x+3T2019+type@asset+block/24.09x_Lecture_5_Slides.pdf"
+    },
+    {
+     "n": 6,
+     "title": "The Turing Test",
+     "url": "",
+     "slides": "https://openlearninglibrary.mit.edu/assets/courseware/v1/49cca30350d8e04a3fe82746210513fd/asset-v1:MITx+24.09x+3T2019+type@asset+block/24.09x_Lecture_6_Slides.pdf"
+    }
+   ],
+   "readings": [
+    {
+     "author": "John Searle",
+     "title": "Is the Brain's Mind a Computer Program? (1990)",
+     "url": "https://openlearninglibrary.mit.edu/assets/courseware/v1/3e5f68afe24add5d2057014be49384a4/asset-v1:MITx+24.09x+3T2019+type@asset+block/1_searle_mind_s_brain_a_computer_program__.pdf",
+     "required": true,
+     "note": "[L2]"
+    },
+    {
+     "author": "John Searle",
+     "title": "Minds, Brains, and Programs (1980)",
+     "url": "https://openlearninglibrary.mit.edu/assets/courseware/v1/894920e796501e08c6628331d21e651b/asset-v1:MITx+24.09x+3T2019+type@asset+block/2_searle_minds_brains_and_programs.pdf",
+     "required": true,
+     "note": "[L3]"
+    },
+    {
+     "author": "Paul and Patricia Churchland",
+     "title": "Could a Machine Think? (1990)",
+     "url": "https://openlearninglibrary.mit.edu/assets/courseware/v1/ea61e8eefb819ecbee7db312800619a1/asset-v1:MITx+24.09x+3T2019+type@asset+block/3_churchlands_could_a_machine_think_.pdf",
+     "required": true,
+     "note": "[L4]"
+    },
+    {
+     "author": "Alan Turing",
+     "title": "Computing Machinery and Intelligence (1950)",
+     "url": "https://openlearninglibrary.mit.edu/assets/courseware/v1/0c0db957c39184b538869f8d9e9a3b56/asset-v1:MITx+24.09x+3T2019+type@asset+block/5_turing_computing_machinery_and_intelligence.pdf",
+     "required": true,
+     "note": "[L5]"
+    },
+    {
+     "author": "Ned Block",
+     "title": "The Mind as the Software of the Brain (1990)",
+     "url": "https://openlearninglibrary.mit.edu/assets/courseware/v1/527c84abeb46068a76933e5aeb688070/asset-v1:MITx+24.09x+3T2019+type@asset+block/4_block_mind_as_software_of_brain.pdf",
+     "required": true,
+     "note": "[L3 optional parts 2-3; L6 part I]"
+    },
+    {
+     "author": "(course)",
+     "title": "Guide to Logic and Argumentation",
+     "url": "https://openlearninglibrary.mit.edu/assets/courseware/v1/235da70b4d9dbaf0f8a43ef0772a4811/asset-v1:MITx+24.09x+3T2019+type@asset+block/2409x_guide_to_logic_and_argumentation.pdf",
+     "required": false,
+     "note": "[L3 optional]"
+    }
+   ]
+  },
+  {
+   "n": 2,
+   "title": "From Dualism to Functionalism",
+   "summary": "Descartes' dualism, Ryle, behaviorism, Smart/Place identity theory, Kripke's modal objection, Putnam/Block functionalism.",
+   "lectures": [
+    {
+     "n": 7,
+     "title": "Dualism",
+     "url": "",
+     "slides": ""
+    },
+    {
+     "n": 8,
+     "title": "Dualism, Continued",
+     "url": "",
+     "slides": ""
+    },
+    {
+     "n": 9,
+     "title": "Behaviorism",
+     "url": "",
+     "slides": ""
+    },
+    {
+     "n": 10,
+     "title": "The Identity Theory",
+     "url": "",
+     "slides": ""
+    },
+    {
+     "n": 11,
+     "title": "The Identity Theory, Continued",
+     "url": "",
+     "slides": ""
+    },
+    {
+     "n": 12,
+     "title": "Kripke's Objection",
+     "url": "",
+     "slides": ""
+    },
+    {
+     "n": 13,
+     "title": "Functionalism",
+     "url": "",
+     "slides": ""
+    },
+    {
+     "n": 14,
+     "title": "Functionalism, Continued",
+     "url": "",
+     "slides": ""
+    }
+   ],
+   "readings": [
+    {
+     "author": "Rene Descartes",
+     "title": "Second Meditation",
+     "url": "https://openlearninglibrary.mit.edu/assets/courseware/v1/5348e3373322460a5c3e70280ba55237/asset-v1:MITx+24.09x+3T2019+type@asset+block/6_descartes_meditation_II.pdf",
+     "required": true,
+     "note": "[L7]"
+    },
+    {
+     "author": "Rene Descartes",
+     "title": "Sixth Meditation",
+     "url": "https://openlearninglibrary.mit.edu/assets/courseware/v1/01e5e9502095ea2eba59ed2f13008d6a/asset-v1:MITx+24.09x+3T2019+type@asset+block/7_descartes_meditation_VI.pdf",
+     "required": true,
+     "note": "[L8]"
+    },
+    {
+     "author": "Rene Descartes",
+     "title": "Passions of the Soul",
+     "url": "https://openlearninglibrary.mit.edu/assets/courseware/v1/d58341b48f62897f42a3199972cde67b/asset-v1:MITx+24.09x+3T2019+type@asset+block/8_descartes_passions_of_the_soul.pdf",
+     "required": true,
+     "note": "[L8]"
+    },
+    {
+     "author": "Gilbert Ryle",
+     "title": "Descartes' Myth",
+     "url": "https://studio.edx.org/asset-v1:MITx+24.09x+3T2015+type@asset+block/9_ryle_descartes__myth.pdf",
+     "required": true,
+     "note": "[L9]"
+    },
+    {
+     "author": "J. J. C. Smart",
+     "title": "Sensations and Brain-Processes",
+     "url": "https://openlearninglibrary.mit.edu/assets/courseware/v1/4464804f4ae111e69bac7184c097daf3/asset-v1:MITx+24.09x+3T2019+type@asset+block/10_smart_sensations_and_brain_processes.pdf",
+     "required": true,
+     "note": "[L10]"
+    },
+    {
+     "author": "U. T. Place",
+     "title": "Is Consciousness a Brain Process?",
+     "url": "https://openlearninglibrary.mit.edu/assets/courseware/v1/2f3ca766c7359f7a251e97108878a4a9/asset-v1:MITx+24.09x+3T2019+type@asset+block/11_place_is_consciousness_a_brain_process_.pdf",
+     "required": true,
+     "note": "[L11; also the text for Argument Analysis 2]"
+    },
+    {
+     "author": "Saul Kripke",
+     "title": "Naming and Necessity (excerpt)",
+     "url": "https://studio.edx.org/asset-v1:MITx+24.09x+3T2015+type@asset+block/12_kripke_naming_and_necessity.pdf",
+     "required": true,
+     "note": "[L12]"
+    },
+    {
+     "author": "Hilary Putnam",
+     "title": "The Nature of Mental States",
+     "url": "https://openlearninglibrary.mit.edu/assets/courseware/v1/d56c37d16d48a9842b52a79e5e4431c7/asset-v1:MITx+24.09x+3T2019+type@asset+block/13_putnam_the_nature_of_mental_states.pdf",
+     "required": true,
+     "note": "[L13]"
+    },
+    {
+     "author": "Ned Block",
+     "title": "What is Functionalism?",
+     "url": "https://openlearninglibrary.mit.edu/assets/courseware/v1/5b3eba11058447798aa9761918f84457/asset-v1:MITx+24.09x+3T2019+type@asset+block/14_block_what_is_functionalism.pdf",
+     "required": true,
+     "note": "[L13]"
+    },
+    {
+     "author": "Brie Gertler",
+     "title": "In Defense of Mind-Body Dualism",
+     "url": "https://studio.edx.org/asset-v1:MITx+24.09x+3T2015+type@asset+block@9a_gertler_dualism.pdf",
+     "required": true,
+     "note": "read before the midterm: its Part III is on this paper"
+    }
+   ]
+  },
+  {
+   "n": 3,
+   "title": "Minds and Brains",
+   "summary": "Internalism vs externalism; knowledge as extrinsic; Twin Earth, Burge's arthritis cases (content externalism).",
+   "lectures": [
+    {
+     "n": 15,
+     "title": "Knowledge",
+     "url": "",
+     "slides": ""
+    },
+    {
+     "n": 16,
+     "title": "Belief",
+     "url": "",
+     "slides": ""
+    },
+    {
+     "n": 17,
+     "title": "Belief, Continued",
+     "url": "",
+     "slides": ""
+    }
+   ],
+   "readings": [
+    {
+     "author": "Timothy Williamson",
+     "title": "Knowledge and Belief (2015)",
+     "url": "https://openlearninglibrary.mit.edu/assets/courseware/v1/db1701c911bc4c36c75fd8657bcfd8c2/asset-v1:MITx+24.09x+3T2019+type@asset+block/15_williamson_knowledge_and_belief.pdf",
+     "required": true,
+     "note": "[L15]"
+    },
+    {
+     "author": "Hilary Putnam",
+     "title": "The Meaning of 'Meaning' (1975)",
+     "url": "https://openlearninglibrary.mit.edu/assets/courseware/v1/a96487011e62ca26f1685f7a5f0565b9/asset-v1:MITx+24.09x+3T2019+type@asset+block/16_putnam_meaning_of__meaning_.pdf",
+     "required": true,
+     "note": "[L16]"
+    },
+    {
+     "author": "Tyler Burge",
+     "title": "Individualism and the Mental (1979)",
+     "url": "https://openlearninglibrary.mit.edu/assets/courseware/v1/32c8bd7efaad136c5179bc2457111596/asset-v1:MITx+24.09x+3T2019+type@asset+block/17_burge_individualism_and_the_mental.pdf",
+     "required": true,
+     "note": "[L16]"
+    },
+    {
+     "author": "Edmund Gettier",
+     "title": "Is Justified True Belief Knowledge?",
+     "url": "http://fitelson.org/proseminar/gettier.pdf",
+     "required": false,
+     "note": "[linked in L16 Gettier unit]"
+    }
+   ]
+  },
+  {
+   "n": 4,
+   "title": "Perception",
+   "summary": "Sense data, the argument from illusion, objectivism vs subjectivism about color, Hardin.",
+   "lectures": [
+    {
+     "n": 18,
+     "title": "Perception",
+     "url": "",
+     "slides": ""
+    },
+    {
+     "n": 19,
+     "title": "The Argument from Illusion, and Color Perception",
+     "url": "",
+     "slides": ""
+    },
+    {
+     "n": 20,
+     "title": "Color",
+     "url": "",
+     "slides": ""
+    }
+   ],
+   "readings": [
+    {
+     "author": "Tim Crane and Craig French",
+     "title": "The Problem of Perception (SEP)",
+     "url": "https://openlearninglibrary.mit.edu/assets/courseware/v1/ef86eaaec15eb1dceb45edb5e0c3f5b1/asset-v1:MITx+24.09x+3T2019+type@asset+block/18_crane_french_problem_of_perception.pdf",
+     "required": true,
+     "note": "[L18]"
+    },
+    {
+     "author": "Barry Maund",
+     "title": "Color (SEP)",
+     "url": "https://openlearninglibrary.mit.edu/assets/courseware/v1/4ca618002d7986634688dfd19d98427b/asset-v1:MITx+24.09x+3T2019+type@asset+block/19_maund_color.pdf",
+     "required": true,
+     "note": "[L19]"
+    },
+    {
+     "author": "C. L. Hardin",
+     "title": "Are 'Scientific' Objects Colored?",
+     "url": "https://openlearninglibrary.mit.edu/assets/courseware/v1/3fc389e473434a75026921a79aeedcd6/asset-v1:MITx+24.09x+3T2019+type@asset+block/20_hardin_are__scientific__objects_colored_.pdf",
+     "required": true,
+     "note": "[L20]"
+    }
+   ]
+  },
+  {
+   "n": 5,
+   "title": "Consciousness",
+   "summary": "Nagel's bat, physicalism and supervenience, Jackson's Mary, Chalmers' Argument Z and the hard problem, Tye on transparency.",
+   "lectures": [
+    {
+     "n": 21,
+     "title": "Color, Continued; Nagel on Bats",
+     "url": "",
+     "slides": ""
+    },
+    {
+     "n": 22,
+     "title": "Nagel on Bats, Continued; the Knowledge Argument",
+     "url": "",
+     "slides": ""
+    },
+    {
+     "n": 23,
+     "title": "The Knowledge Argument, Continued; Chalmers' Dualism",
+     "url": "",
+     "slides": ""
+    },
+    {
+     "n": 24,
+     "title": "Chalmers' Dualism, Continued; Tye on Transparency",
+     "url": "",
+     "slides": ""
+    },
+    {
+     "n": 25,
+     "title": "Consciousness Wrap-Up",
+     "url": "",
+     "slides": ""
+    }
+   ],
+   "readings": [
+    {
+     "author": "Thomas Nagel",
+     "title": "What Is It Like to Be a Bat?",
+     "url": "https://openlearninglibrary.mit.edu/assets/courseware/v1/e44d6cf493b00fa4f8ad93c9cf163508/asset-v1:MITx+24.09x+3T2019+type@asset+block/21_nagel_what_is_it_like_to_be_a_bat_.pdf",
+     "required": true,
+     "note": "[L21-22]"
+    },
+    {
+     "author": "Frank Jackson",
+     "title": "Epiphenomenal Qualia",
+     "url": "https://openlearninglibrary.mit.edu/assets/courseware/v1/fbbebd3e97e4a6807cfdce97f73a58f1/asset-v1:MITx+24.09x+3T2019+type@asset+block/22_jackson_epiphenomenal_qualia.pdf",
+     "required": true,
+     "note": "[L22-23]"
+    },
+    {
+     "author": "David Chalmers",
+     "title": "The Hard Problem of Consciousness",
+     "url": "https://studio.edx.org/asset-v1:MITx+24.09x+3T2015+type@asset+block/23_chalmers_the_hard_problem_of_consciousness.pdf",
+     "required": true,
+     "note": "[L23-24]"
+    },
+    {
+     "author": "Michael Tye",
+     "title": "The Puzzle of Transparency",
+     "url": "https://studio.edx.org/asset-v1:MITx+24.09x+3T2015+type@asset+block/24_tye_the_puzzle_of_transparency.pdf",
+     "required": true,
+     "note": "[L24-25]"
+    }
+   ]
+  }
+ ],
+ "assignments": [
+  {
+   "id": "aa1-written",
+   "kind": "argument-analysis",
+   "title": "Argument analysis 1 (written)",
+   "prompt": "Write 2-3 pages providing a reconstruction and analysis of the brain simulator reply and Searle's response. (Rest paraphrased: find the reply in 'Minds, Brains, and Programs'; lay out Searle's rebuttal as premises and a conclusion of one sentence each, labelling each line assumption or inference; explain it in your own words; judge validity and plausibility and say which extra premises would make it valid.)",
+   "length": "2-3 pages",
+   "unit": 1,
+   "rubric": [
+    {
+     "criterion": "Reconstruction",
+     "points": 8,
+     "detail": "The argument as numbered premises and a conclusion, one sentence each, each line labelled assumption or inference."
+    },
+    {
+     "criterion": "Faithful to the text",
+     "points": 4,
+     "detail": "It is the argument the author actually gives, located in the reading, not a stronger or weaker one."
+    },
+    {
+     "criterion": "Explanation",
+     "points": 4,
+     "detail": "Each premise explained in your own words: what it says and why the author holds it."
+    },
+    {
+     "criterion": "Evaluation",
+     "points": 8,
+     "detail": "Is it valid? If not, what extra premise would make it valid? Which premise is weakest and why? A verdict, argued."
+    },
+    {
+     "criterion": "Clarity and form",
+     "points": 6,
+     "detail": "2-3 pages, organised around a thesis, claims attributed to the text accurately (the course's paper guidelines)."
+    }
+   ],
+   "rubricSource": "built from the assignment's own instructions (premise-conclusion form, labelling, validity and plausibility) and the course's paper guidelines; neither edition publishes a rubric",
+   "points": 30,
+   "url": "https://ocw.mit.edu/courses/24-09-minds-and-machines-fall-2011/pages/assignments/"
+  },
+  {
+   "id": "aa2-written",
+   "kind": "argument-analysis",
+   "title": "Argument analysis 2 (written)",
+   "prompt": "Sherrington argues there are 'two continuous series of events, one physico-chemical, the other psychical, and at times interaction between them' (p. 29), as discussed in Place's 'Is Consciousness a Brain Process?'. (i) reconstruct Sherrington's argument in premise-conclusion form, (ii) explain how Place responds, (iii) analyze and evaluate both. (paraphrased except the quote)",
+   "length": "2-3 pages",
+   "unit": 2,
+   "rubric": [
+    {
+     "criterion": "Reconstruction",
+     "points": 8,
+     "detail": "The argument as numbered premises and a conclusion, one sentence each, each line labelled assumption or inference."
+    },
+    {
+     "criterion": "Faithful to the text",
+     "points": 4,
+     "detail": "It is the argument the author actually gives, located in the reading, not a stronger or weaker one."
+    },
+    {
+     "criterion": "Explanation",
+     "points": 4,
+     "detail": "Each premise explained in your own words: what it says and why the author holds it."
+    },
+    {
+     "criterion": "Evaluation",
+     "points": 8,
+     "detail": "Is it valid? If not, what extra premise would make it valid? Which premise is weakest and why? A verdict, argued."
+    },
+    {
+     "criterion": "Clarity and form",
+     "points": 6,
+     "detail": "2-3 pages, organised around a thesis, claims attributed to the text accurately (the course's paper guidelines)."
+    }
+   ],
+   "rubricSource": "built from the assignment's own instructions (premise-conclusion form, labelling, validity and plausibility) and the course's paper guidelines; neither edition publishes a rubric",
+   "points": 30,
+   "url": "https://ocw.mit.edu/courses/24-09-minds-and-machines-fall-2011/pages/assignments/"
+  }
+ ],
+ "exams": [
+  {
+   "id": "aa1-problems",
+   "kind": "quiz",
+   "title": "Argument analysis 1 (problems)",
+   "covers": [
+    1
+   ],
+   "unit": 1,
+   "minutes": 45,
+   "closedBook": false,
+   "source": "real",
+   "url": "https://openlearninglibrary.mit.edu/courses/course-v1:MITx+24.09x+3T2019/jump_to/block-v1:MITx+24.09x+3T2019+type@sequential+block@f40ac571361245fa8c35bf224cb66235",
+   "rules": "The course's first argument analysis: graded problems on the Churchlands' Luminous Room argument. The course allows any course material."
+  },
+  {
+   "id": "midterm",
+   "kind": "midterm",
+   "title": "Midterm",
+   "covers": [
+    1,
+    2
+   ],
+   "unit": 2,
+   "minutes": 90,
+   "closedBook": true,
+   "source": "real",
+   "url": "https://openlearninglibrary.mit.edu/courses/course-v1:MITx+24.09x+3T2019/jump_to/block-v1:MITx+24.09x+3T2019+type@sequential+block@8e82cdc0689e4659bc6e361a3251962a",
+   "solutions": "https://openlearninglibrary.mit.edu/courses/course-v1:MITx+24.09x+3T2019/jump_to/block-v1:MITx+24.09x+3T2019+type@sequential+block@af607b347b98442fa4063ec013458a7e",
+   "rules": "The course's own midterm: 25 questions in three parts (identify the author of a quotation, true/false, and questions on Brie Gertler's 'In Defense of Mind-Body Dualism'). The course allowed course materials and set no time limit; Teach sits it closed-book in 90 minutes, which is harder, not easier. Read Gertler's paper before you start: its link is in the exam."
+  },
+  {
+   "id": "aa2-problems",
+   "kind": "quiz",
+   "title": "Argument analysis 2 (problems)",
+   "covers": [
+    2,
+    4
+   ],
+   "unit": 4,
+   "minutes": 45,
+   "closedBook": false,
+   "source": "real",
+   "url": "https://openlearninglibrary.mit.edu/courses/course-v1:MITx+24.09x+3T2019/jump_to/block-v1:MITx+24.09x+3T2019+type@sequential+block@c0b0166bd14c458e993363b7f737996f",
+   "rules": "The course's second argument analysis: graded problems on Place's reply to Sherrington. The course allows any course material."
+  },
+  {
+   "id": "final",
+   "kind": "final",
+   "title": "Final exam",
+   "covers": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "unit": 5,
+   "minutes": 150,
+   "closedBook": true,
+   "source": "real",
+   "url": "https://openlearninglibrary.mit.edu/courses/course-v1:MITx+24.09x+3T2019/jump_to/block-v1:MITx+24.09x+3T2019+type@sequential+block@cabf17e2ff3f4ab59319adabc201ab83",
+   "solutions": "https://openlearninglibrary.mit.edu/courses/course-v1:MITx+24.09x+3T2019/jump_to/block-v1:MITx+24.09x+3T2019+type@sequential+block@e83223adf0cb4c6aa348bf8286a05a42",
+   "rules": "The course's own final: four parts (identify the author of a quotation, yes/no, multiple select, and a fourth part). Teach sits it closed-book in 150 minutes."
+  }
+ ],
+ "grading": [
+  {
+   "what": "Argument analysis 1",
+   "weight": 10,
+   "items": [
+    "aa1-problems",
+    "aa1-written"
+   ]
+  },
+  {
+   "what": "Midterm",
+   "weight": 30,
+   "items": [
+    "midterm"
+   ]
+  },
+  {
+   "what": "Argument analysis 2",
+   "weight": 10,
+   "items": [
+    "aa2-problems",
+    "aa2-written"
+   ]
+  },
+  {
+   "what": "Final exam",
+   "weight": 50,
+   "items": [
+    "final"
+   ]
+  }
+ ],
+ "passMark": 50
+}
