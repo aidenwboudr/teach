@@ -60,6 +60,15 @@ log and a knowledge map for every topic, and makes the sheet, worksheet or deck 
   datasheet, your code) and come back to the board after. It doesn't when your screen is locked or asleep or
   you're typing in Teach, and "Stay on the board" stops it for that topic. Everything else works on Linux,
   macOS, Windows and in Docker.
+- **Narration and voice input**: three switches above the composer, in any combination. **On my screen** (where
+  the lesson is), **Narrate** (the tutor read out loud: its replies and question cards in the Teach window, or its
+  spoken steps on your screen; each place remembers its own setting, off in Teach and on on the screen until you
+  change them) and **Voice** (the microphone: what you say becomes your message, or your answer to the card in front
+  of you, "number two" or the option's words). The chip says when it's listening, hearing you or writing it down;
+  click it, press M or say "stop listening" to mute. It doesn't listen while the tutor is talking, so its voice from
+  your speakers isn't taken for yours. Your last choice holds for every topic. Voice input needs `TEACH_STT_CMD`
+  (`examples/whisper_stt.py`: faster-whisper on your CPU, nothing leaves the machine); narration in Teach uses
+  `TEACH_TTS_CMD`, else screen-chalk's voice, else the browser's.
 
 Everything is plain files: `PROFILE.md` (what you know, how you like to learn; the tutor keeps it current) and one
 folder per topic (`topic.json`, `log.md`, `deck.json`, `figures/`).
@@ -188,6 +197,8 @@ changing it (`systemctl --user restart teach`, `launchctl kickstart -k gui/$(id 
 | `TEACH_FOCUS_STATE` | (none) | A focus tool's state file; while it's active, tutors lose the shell |
 | `TEACH_T3_DB` | `~/.t3/userdata/state.sqlite` | T3 Code's database, for chat titles under "From other chats" |
 | `TEACH_CHALK`, `TEACH_CHALK_MCP` | `chalk`, `chalk-mcp` on PATH | screen-chalk, for screen mode |
+| `TEACH_STT_CMD` | (none) | Voice input: a speech-to-text process that reads `{"id", "path", "prompt"}` lines (a WAV clip) and answers `{"id", "text", "no_speech"}` lines, e.g. `python3 examples/whisper_stt.py` (`pip install faster-whisper`; `TEACH_WHISPER_MODEL`, default `small.en`). Started when the mic goes on, stopped after 10 minutes unused. Without it there's no Voice switch |
+| `TEACH_TTS_CMD` | screen-chalk's voice | Narration in the Teach window: text on stdin, 24 kHz mono 16-bit PCM (or a WAV) on stdout. Without it or chalk, the browser's own voice |
 
 ## Security: read this
 
