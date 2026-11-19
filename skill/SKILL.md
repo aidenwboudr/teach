@@ -145,7 +145,7 @@ moment resumes cleanly.
 
 ## End-of-session actions
 
-When a session ends (a pause, Mark done, the plan through), the app shows a grid of actions. Nothing is made until
+When a session ends (a stop, from the app's Stop for today button or your break card; Mark done; the plan through), the app shows a grid of actions. Nothing is made until
 the learner clicks one; until then each is a grey button. The kinds: `sheet` (a note sheet sized to what the exam
 allows, or a study sheet), `worksheet` (printable problems + a separate answer key), `practice` (a timed test on the
 board), `session` (a review or next session on their calendar; the app does that one alone), `cards` (flashcards),
@@ -329,8 +329,24 @@ whole topic.
 ## Phase 4: close
 
 Close when the learner says stop, when the goal is reached, or at a natural break after roughly 30-45
-minutes of steps (just ask whether they want to keep going). The app's Pause and Mark done buttons send you a
-`[Teach app] pause` or `[Teach app] close` message with what to do.
+minutes of steps. Every stop goes through the app, so it ends the same way and the learner gets the
+end-of-session grid:
+
+- **At a natural break, offer the stop with a break card**: `ask` with `purpose: "break"`, an `intro` saying
+  where the session stands ("Six steps done, every check first try, about 50 minutes in"), and one question
+  whose prompt says why this is a good place to stop. Give `finish` with a step id when one short step is worth
+  doing first. Don't write options: the app writes them (Stop here for today, Do step N and then stop, Keep
+  going) and acts on the pick itself. Don't offer a stop as a `setup` or `approve` card or in plain text; the
+  app can't act on those.
+- **Stop here for today** sends you the app's `[Teach app] pause` message at once, the same message as its
+  Stop for today button (P). **Do step N and then stop**: teach and check step N as usual, `step` it when its
+  check is in, and end that turn without starting the next step; the app then sends the same pause message.
+  **Keep going**: carry on.
+- **The learner says they want to stop** (in their own words, or on any card): reply with a break card right
+  away, without `finish` unless they named a step; it's one click for them, and the app ends the session.
+  The app's **Mark done** sends `[Teach app] close`.
+
+The pause and close messages say what to do; it's these steps, with status `paused` or `done`:
 
 1. Write a short recap in the log: what was covered, where the plan stopped, and what was shaky. Set `next`
    to the exact resume point.

@@ -68,12 +68,19 @@ const TUTOR = { provider: PROVIDER.id, label: PROVIDER.label, models: PROVIDER.c
 const closeAfter = new Set();
 const afterRestart = new Map();   // slug → note to start the next process with (screen mode switched)
 const afterTurn = new Map();      // slug → note for a new turn once this one ends (the mode changed mid-turn)
+const stopAfter = new Map();      // slug → the plan step whose end ends the session (the break card's "Do step N and then stop")
 engine.onTurnEnd = (slug, l) => {
   if (l.quiet && store.getTopic(slug)?.settings.voice !== false) noteFor(slug, store.getRuntime(slug).live ? QUIET_STRETCH : QUIET_NOTE);
   if (jobs.has(slug)) jobEnded(slug);
   courses.onTurnEnd(slug);
   if (!jobs.has(slug) && jobQueue.get(slug)?.length) return pump(slug);   // the next action the learner asked for (a close waits for them)
   if (closeAfter.delete(slug)) { afterTurn.delete(slug); return engine.close(slug); }
+  // "Do step N and then stop" on the break card: once step N is through, the session ends as the Pause button ends it
+  const waitFor = stopAfter.get(slug);
+  if (waitFor && STOP_DONE.includes(store.getTopic(slug)?.plan?.find((x) => x.id === waitFor)?.status ?? "done")) {
+    afterTurn.delete(slug);
+    return endSession(slug, "pause", `[Teach app] break\nStep ${waitFor} is through: this is the stop ${LEARNER} picked on your break card.`);
+  }
   if (afterTurn.has(slug)) { const note = afterTurn.get(slug); afterTurn.delete(slug); return turn(slug, [{ type: "text", text: note }]); }
   // words that reached the inbox just as a watch ended: nobody picked them up, so they start the next turn
   const said = screen.takeInbox(slug);
@@ -83,6 +90,7 @@ engine.onTurnEnd = (slug, l) => {
 engine.onExit = (slug) => {
   scheduleSync("session ended");
   afterTurn.delete(slug);   // a mode note for a turn that never came: the next process starts with the mode as it is
+  if (!afterRestart.has(slug)) stopAfter.delete(slug);   // the session it was for is over (a restart for screen mode carries on)
   if (store.getRuntime(slug).live) endLive(slug, "ended");   // a stretch on the screen ends with its tutor
   else if (store.getTopic(slug)?.settings.screen) screen.chalk(["clear", "--marks"]);   // their switch was on: the session's cards come down with it
   if (!afterRestart.has(slug)) return;
@@ -423,6 +431,35 @@ setTimeout(linkBeat, 3000).unref();   // after a restart: pick the live lesson b
 // runtime state (the app's record of what was asked and answered), shown in the lesson and sent to the tutor.
 const askItem = (slug, id) => boardOf(slug).blocks.find((x) => x.kind === "ask" && x.id === id) || topicHistory(store.getTopic(slug)).find((i) => i.t === "ask" && i.id === id);
 
+// The end of a session, one path for all of it: the Pause button (P), Mark done, and a stop picked on the tutor's
+// break card (at once, or when the step it names is through: engine.onTurnEnd). The tutor runs Phase 4 (recap,
+// profile, `next`, the actions it suggests) and sets the status; the page opens the end-of-session grid.
+// `lead`: what to put before the app's note (the break card's answers); `opts`: the turn's (which answers it carries).
+const STOP_DONE = ["done", "shaky", "skipped"];
+const stopStep = (slug, id) => {   // the step a break card's "Do step N and then stop" waits for (the current one if N isn't in the plan)
+  const plan = store.getTopic(slug).plan || [];
+  const n = plan.find((x) => x.id === String(id)) || plan.find((x) => x.status === "current");
+  return n && !STOP_DONE.includes(n.status) ? n : null;
+};
+const nextStepAfter = (slug, id) => { const plan = store.getTopic(slug).plan || []; return plan[plan.findIndex((x) => x.id === id) + 1]?.id || ""; };
+
+function endSession(slug, action, lead = "", opts = {}) {
+  const t = store.getTopic(slug);
+  stopAfter.delete(slug);
+  if (onScreenNow(t)) screen.unlink(slug, onLink);
+  const pick = `call update with \`suggest\`: the end-of-session actions that fit this topic best, best first, each with a one-line why${t.why === "exam" ? ", and with \`allowance\` if you know what the exam lets them bring" : ""}. Don't make any of them: ${LEARNER} sees them as buttons and nothing is made until they click one.`;
+  const note = action === "pause"
+    ? `[Teach app] pause\n${Learner} is stopping here for today. Don't start anything new. Run Phase 4: a short recap in log.md (what was covered, where we stopped, any pending check, what was shaky), update PROFILE.md, ${pick} Then call update with \`next\` set to the exact resume point and status "paused", and reply with a short recap.`
+    : `[Teach app] close\n${Learner} marked this topic done. Run Phase 4: recap in log.md, update PROFILE.md, ${pick} Then call update with status "done" and a \`next\` that says what to come back to.${SYNC === "git-pr" ? " The app handles git." : ""} Reply with a short recap.`;
+  emit(slug, { t: "ending", action });   // the page: the same end-of-session grid either way
+  if (engine.isAlive(slug) || t.sessions.length) {
+    closeAfter.add(slug);
+    const content = [...(lead ? [{ type: "text", text: lead }] : []), { type: "text", text: note }];
+    if (engine.status(slug).watching !== null) { screen.toInbox(slug, content.map((c) => c.text).join("\n\n")); return; }   // a watch is waiting: it takes it
+    turn(slug, content, opts);
+  } else store.mutateTopic(slug, (x) => { x.status = action === "pause" ? "paused" : "done"; });
+}
+
 function answerSet(slug, id, answers, via) {
   const item = askItem(slug, id);
   if (!item) throw Object.assign(new Error("no such question set"), { code: 404 });
@@ -434,6 +471,14 @@ function answerSet(slug, id, answers, via) {
   if (via === "screen") text += "\n(Answered on screen; the panel already showed right/wrong and your why lines.)";
   store.mutateRuntime(slug, (r) => { r.answers = { ...(r.answers || {}), [id]: { answers, results, at: store.now(), via } }; });
   emit(slug, { t: "ask", id, status: "answered", answers, results, ask: item.ask, via });
+  // a break card's stop: "now" is the Pause button; "after" is the Pause button once that step is through
+  const stop = ops.breakStop(item.ask, answers);
+  if (stop === "now" || (stop === "after" && !stopStep(slug, item.ask.finish))) { endSession(slug, "pause", text, { answers: id }); return results; }
+  if (stop === "after") {
+    const step = stopStep(slug, item.ask.finish);
+    stopAfter.set(slug, step.id);
+    text += `\n[Teach app] break\nThe app ends the session once step ${step.id} (${step.title}) is through: teach it and check it as usual, \`step\` it when its check is in, then end your turn without starting step ${nextStepAfter(slug, step.id) || "after it"}. The app then sends you its pause message, the same one as the Pause button.`;
+  }
   if (engine.status(slug).watching !== null) screen.toInbox(slug, text);   // a watch is waiting: it takes them
   else turn(slug, [{ type: "text", text }], { answers: id });
   return results;
@@ -996,16 +1041,7 @@ async function route(req, res) {
       }
       case "stop": if (jobs.has(slug) && store.getTopic(slug).outputs?.[jobs.get(slug).kind]?.state === "working") { pauseAction(slug, jobs.get(slug).kind); return ok(res); }   // Esc while making something: a pause
         engine.interrupt(slug); if (onScreenNow(t)) screen.hush(); return ok(res);
-      case "pause": case "done": {
-        if (onScreenNow(t)) screen.unlink(slug, onLink);
-        const pick = `call update with \`suggest\`: the end-of-session actions that fit this topic best, best first, each with a one-line why${t.why === "exam" ? ", and with \`allowance\` if you know what the exam lets them bring" : ""}. Don't make any of them: ${LEARNER} sees them as buttons and nothing is made until they click one.`;
-        const note = action === "pause"
-          ? `[Teach app] pause\n${Learner} is pausing here. Bring log.md up to date (where we stopped, any pending check), ${pick} Then call update with \`next\` set to the exact resume point and status "paused", and reply with one short line. Don't start anything new.`
-          : `[Teach app] close\n${Learner} marked this topic done. Run Phase 4: recap in log.md, update PROFILE.md, ${pick} Then call update with status "done" and a \`next\` that says what to come back to.${SYNC === "git-pr" ? " The app handles git." : ""} Reply with a short recap.`;
-        if (engine.isAlive(slug) || t.sessions.length) { closeAfter.add(slug); turn(slug, [{ type: "text", text: note }], {}); }
-        else store.mutateTopic(slug, (x) => { x.status = action === "pause" ? "paused" : "done"; });
-        return ok(res);
-      }
+      case "pause": case "done": endSession(slug, action); return ok(res);
       case "fresh": {
         engine.close(slug);
         store.mutateTopic(slug, (x) => { const last = x.sessions.at(-1); if (last) last.fresh = true; });

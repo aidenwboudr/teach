@@ -44,12 +44,14 @@ const TOOLS = [
     inputSchema: {
       type: "object", required: ["questions"],
       properties: {
-        purpose: { type: "string", enum: ["probe", "check", "review", "setup", "approve", "practice"], description: "probe = map their edge; check = test the step just taught; setup = context questions (no 'I don't know'); approve = 'does this plan look right?'" },
+        purpose: { type: "string", enum: ["probe", "check", "review", "setup", "approve", "practice", "break"], description: "probe = map their edge; check = test the step just taught; setup = context questions (no 'I don't know'); approve = 'does this plan look right?'; " +
+          "break = offer a stop at a natural break: give `intro` (where the session stands) and one question whose prompt says why here is a good place (no options: the app writes them: Stop here for today, Do step <finish> and then stop when you give `finish`, Keep going). A stop they pick ends the session exactly as the app's Stop for today button does: you get its '[Teach app] pause' message." },
+        finish: { type: "string", description: "break: the plan step id worth finishing before stopping (a short one, e.g. the next step); adds 'Do step <id> and then stop'" },
         node: { type: "string", description: "Plan step id this set checks (for check/practice)" },
         intro: { type: "string", description: `One line above the questions (${md})` },
         box: { type: "array", items: { type: "number" }, description: "Screen mode: [x, y, w, h] in the last screenshot's px of what the questions are about (the code line, the button). The card pops up on their screen beside it." },
         questions: {
-          type: "array", minItems: 1, maxItems: 8,
+          type: "array", minItems: 1, maxItems: 8, description: "break: one question, the prompt only",
           items: {
             type: "object", required: ["prompt"],
             properties: {

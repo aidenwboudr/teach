@@ -5,7 +5,7 @@
 // shows its settings, and opens them: a small form before (or instead of) generating. Loaded after genbtn.js and
 // before app.js; uses app.js's helpers ($, el, frag, api, T, toast, go, md…) at call time.
 
-const N = { view: null, buttons: new Map(), open: false, timer: null, activity: "" };
+const N = { view: null, buttons: new Map(), open: false, timer: null, activity: "", ending: "" };
 const NEXT_NAMES = { idle: "", queued: "Waiting", working: "Making", paused: "Paused", ready: "Ready", failed: "Didn't finish" };
 
 // Is the grid in view: after a pause or a close, once the plan is through, when something's being made or was made
@@ -31,11 +31,11 @@ function nextMount(main) {
     </section>`);
   $(".ws-top", main).insertBefore(box, $(".board", main));
   $(".next-hide", box).addEventListener("click", () => {
-    N.open = false;
+    N.open = false; N.ending = "";
     try { localStorage.setItem(`teach-next-hide-${T.slug}`, nextKey(T.data.topic)); } catch { /* private window */ }
     nextShow(false);
   });
-  if (N.slug !== T.slug) { N.open = false; N.activity = ""; }
+  if (N.slug !== T.slug) { N.open = false; N.activity = ""; N.ending = ""; }
   N.buttons = new Map(); N.view = null; N.slug = T.slug;
   nextRefresh(0);
 }
@@ -60,7 +60,9 @@ function nextRefresh(delay = 200) {
     if (page !== "topic" || T.tab !== "lesson" || !$(".next")) return;
     const want = nextWanted();
     if (!want) return nextShow(false);
-    try { nextPaint(await api(`/api/topics/${T.slug}/actions`)); } catch { /* server restarting */ }
+    // (only the latest fetch paints: one sent before the tutor's suggestions can come back after the one sent after)
+    const seq = N.seq = (N.seq || 0) + 1;
+    try { const v = await api(`/api/topics/${T.slug}/actions`); if (seq === N.seq) nextPaint(v); } catch { /* server restarting */ }
   }, delay);
 }
 
@@ -69,6 +71,11 @@ function nextPaint(v) {
   const before = new Map((N.view?.tiles || []).map((x) => [x.kind, x.state]));
   N.view = v;
   const a = v.situation.allowance;
+  // (the heading names the stop, so Stop for today and the break card's "Stop here for today" read as one thing)
+  const st = T.data?.topic?.status;
+  if (st === "paused" || st === "done") N.ended = true; else if (N.ended) { N.ending = ""; N.ended = false; }   // (picked up again since)
+  const how = N.ending || (st === "paused" ? "pause" : st === "done" ? "done" : "");
+  $(".next-head h2", box).textContent = how === "pause" ? "Stopped for today. What next?" : how === "done" ? "Done. What next?" : "What next?";
   $(".next-sub", box).textContent = v.tiles.length ? "Nothing is made until you click it." : "";
   if (!v.tiles.length) { grid.innerHTML = `<p class="muted next-empty">Nothing to make yet: once a step is taught, its sheet, worksheet and the rest show up here.</p>`; nextShow(true); return; }
   grid.querySelector(".next-empty")?.remove();
@@ -230,6 +237,13 @@ function nextSessionDetails(x) {
 
 // Live: the grid follows the server (actions and topic events), and the tile being made shows what the tutor is doing.
 function nextEvent(ev) {
+  // The session is ending: Stop for today (P), Mark done, or a stop picked on the tutor's break card. One grid for all.
+  if (ev.t === "ending") {
+    N.open = true; N.ending = ev.action;
+    toast(ev.action === "done" ? "Wrapping up: the tutor is writing the recap." : "Stopping for today: the tutor is writing the recap.");
+    nextRefresh(0);
+    return setTimeout(() => $(".next")?.scrollIntoView({ block: "start", behavior: "smooth" }), 120);
+  }
   if (ev.t === "actions" || ev.t === "topic") return nextRefresh(ev.t === "actions" ? 0 : 250);
   if (ev.t === "activity" && ev.label && N.view?.running) {
     N.activity = ev.state === "running" ? ev.label : N.activity;
