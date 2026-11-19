@@ -64,7 +64,7 @@ test("screen tools only exist in screen mode", LINUX, async () => {
   on.close(); off.close();
 });
 
-test("say speaks through chalk and returns at once; voice off says so instead", LINUX, async () => {
+test("say speaks through chalk and returns at once; narration off on the screen says so instead", LINUX, async () => {
   fs.rmSync(LOG, { force: true });
   const s = mcp();
   const r = await s.req("tools/call", { name: "say", arguments: { text: "Open the  Layers panel." } }).done;
@@ -73,7 +73,7 @@ test("say speaks through chalk and returns at once; voice off says so instead", 
   assert.match(log(), /say Open the Layers panel\./);
   store.mutateTopic("gimp-layers", (t) => { t.settings.voice = false; });
   const q = await s.req("tools/call", { name: "say", arguments: { text: "Quiet now." } }).done;
-  assert.match(q.result.content[0].text, /Voice is off/);
+  assert.match(q.result.content[0].text, /Narration on their screen is off/);
   await sleep(200);
   assert.doesNotMatch(log(), /Quiet now/);
   store.mutateTopic("gimp-layers", (t) => { t.settings.voice = true; });

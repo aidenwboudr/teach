@@ -17,6 +17,7 @@ import { PROVIDER } from "./lib/providers/index.mjs";
 import { history, findSessions, pendingAsk, digest, sessionFile } from "./lib/transcript.mjs";
 import { sync, lastSync } from "./lib/sync.mjs";
 import * as screen from "./lib/screen.mjs";
+import * as voice from "./lib/voice.mjs";
 import * as stage from "./lib/stage.mjs";
 import * as board from "./lib/board.mjs";
 import * as actions from "./lib/actions.mjs";
@@ -70,7 +71,7 @@ const afterRestart = new Map();   // slug → note to start the next process wit
 const afterTurn = new Map();      // slug → note for a new turn once this one ends (the mode changed mid-turn)
 const stopAfter = new Map();      // slug → the plan step whose end ends the session (the break card's "Do step N and then stop")
 engine.onTurnEnd = (slug, l) => {
-  if (l.quiet && store.getTopic(slug)?.settings.voice !== false) noteFor(slug, store.getRuntime(slug).live ? QUIET_STRETCH : QUIET_NOTE);
+  if (l.quiet && voice.prefs(store.getTopic(slug)).narrate.screen) noteFor(slug, store.getRuntime(slug).live ? QUIET_STRETCH : QUIET_NOTE);
   if (jobs.has(slug)) jobEnded(slug);
   courses.onTurnEnd(slug);
   if (!jobs.has(slug) && jobQueue.get(slug)?.length) return pump(slug);   // the next action the learner asked for (a close waits for them)
@@ -89,6 +90,7 @@ engine.onTurnEnd = (slug, l) => {
 };
 engine.onExit = (slug) => {
   scheduleSync("session ended");
+  if (speaking.slug === slug) speakingOff();   // (its say lines were cut off with it)
   afterTurn.delete(slug);   // a mode note for a turn that never came: the next process starts with the mode as it is
   if (!afterRestart.has(slug)) stopAfter.delete(slug);   // the session it was for is over (a restart for screen mode carries on)
   if (store.getRuntime(slug).live) endLive(slug, "ended");   // a stretch on the screen ends with its tutor
@@ -541,6 +543,83 @@ function endLive(slug, by) {
   emit(slug, { t: "state", ...engine.status(slug) });
 }
 
+// ---------- voice: narration and voice input (lib/voice.mjs) ----------
+
+// The page that listens: one at a time (the laptop's Teach window or the phone's), so one thing said isn't sent
+// twice. A page claims it when it turns the mic on or opens with it on; the claim goes when that page closes.
+const mic = { client: null, at: 0 };
+// The tutor's `say` playing on their computer right now (mcp.mjs reports it): the page doesn't listen meanwhile, so
+// the narration coming out of the speakers isn't taken for their answer.
+const speaking = { on: false, until: 0, slug: null };
+const voiceView = (t) => ({ ...voice.prefs(t), stt: voice.sttReady(), tts: voice.ttsReady(), holder: mic.client, speaking: speaking.on && Date.now() < speaking.until });
+const toAll = (ev) => { const data = `data: ${JSON.stringify(ev)}\n\n`; for (const c of clients) c.res.write(data); };
+// (each page gets the switches as they stand for its own topic: an old topic's screen narration may differ)
+const voiceChanged = () => { for (const c of clients) c.res.write(`data: ${JSON.stringify({ t: "voice", voice: voiceView(c.topic && store.getTopic(c.topic)) })}\n\n`); };
+// The tutor's voice stopped (hushed, the tutor gone): the pages may listen again at once.
+const speakingOff = () => { if (!speaking.on) return; Object.assign(speaking, { on: false, until: 0 }); toAll({ t: "speaking", on: false, seconds: 0 }); };
+
+// What the tutor hears when a switch changes (on its next turn), and on starting with one already on.
+const voiceNotes = new Map();   // slug → [text]
+const VOICE_NOTE = {
+  mic: [`[Teach app] voice input on\n${Learner} turned on voice input: they may answer by speaking. Their spoken messages reach you transcribed, marked "(spoken)"; ` +
+    `a spoken answer to a question card arrives like a clicked one. Speech-to-text can mishear names, symbols and numbers: read it generously, confirm a number or term ` +
+    `when it matters, and ask them to type code or exact notation instead of saying it.`, `[Teach app] voice input off\n${Learner} turned voice input off: they type again.`],
+  board: [`[Teach app] narration in Teach on\n${Learner} turned on narration in the Teach window: your reply text is read out loud to them from now on (notes and code aren't). ` +
+    `Write replies that sound right spoken: short sentences, no symbols, code or equations in the reply itself (those go in notes on the board; say in words what they show).`,
+    `[Teach app] narration in Teach off\n${Learner} turned narration in the Teach window off: your replies are read, not heard.`],
+  screen: [`[Teach app] narration on their screen on\n${Learner} turned narration on their screen back on: say works again while the lesson is on their screen.`,
+    `[Teach app] narration on their screen off\n${Learner} turned narration on their screen off: say only shows the words in the Teach window now. While the lesson is on their screen, ` +
+    `put what they need to read on their screen (a label or card next to the thing), and use watch as usual.`],
+};
+function voiceNote(text) {
+  for (const slug of store.listSlugs()) {
+    if (!engine.isAlive(slug)) continue;
+    const n = voiceNotes.get(slug) || [];
+    // a switch flipped back and forth: only the latest word on it
+    const kind = text.split("\n")[0].replace(/ (on|off)$/, "");
+    voiceNotes.set(slug, [...n.filter((x) => x.split("\n")[0].replace(/ (on|off)$/, "") !== kind), text]);
+  }
+}
+// A tutor starting up with narration in Teach or voice input on hears it once.
+const voiceStart = (t) => { const p = voice.prefs(t); return [...(p.mic ? [VOICE_NOTE.mic[0]] : []), ...(p.narrate.board ? [VOICE_NOTE.board[0]] : [])]; };
+
+function setVoice(b, slug) {
+  const t = slug ? store.getTopic(slug) : null;
+  const patch = { narrate: {} };
+  if (typeof b.narrate?.board === "boolean") patch.narrate.board = b.narrate.board;
+  if (typeof b.narrate?.screen === "boolean") patch.narrate.screen = b.narrate.screen;
+  if (typeof b.mic === "boolean") patch.mic = b.mic;
+  const changed = voice.setPrefs(patch, t);
+  if (b.mic === true && b.client) Object.assign(mic, { client: String(b.client).slice(0, 40), at: Date.now() });
+  if (voice.prefs(t).mic) voice.sttWarm();   // (the model loads while they listen to the question)
+  if (b.mic === false) mic.client = null;
+  const onScreenLesson = t && onScreenNow(t);
+  for (const [what, on] of changed) {
+    voiceNote(VOICE_NOTE[what][on ? 0 : 1]);
+    if (what === "screen" && !on) { screen.hush(); speakingOff(); }
+    if (what === "mic" && onScreenLesson) screen.toast(on ? "Listening · say “stop listening” to mute" : "Not listening", on ? "green" : "yellow");
+  }
+  voiceChanged();
+  return changed;
+}
+
+// What they said (a WAV clip from the page) -> the words, and what to do with them on the card in front of them.
+async function hear(slug, clip, { card, focus = 0 } = {}) {
+  const t = store.getTopic(slug);
+  const item = card ? askItem(slug, card) : null;
+  const ask = item?.status === "pending" ? item.ask : null;
+  const q = ask?.questions?.[focus];
+  const hint = [t?.title, q?.prompt, ...(q?.options || [])].filter(Boolean).map((x) => voice.speakable(x)).join(". ");
+  const f = voice.saveClip(clip);
+  let heard;
+  try { heard = await voice.transcribe(f, hint); } finally { fs.rmSync(f, { force: true }); }
+  if (heard.error) return { kind: "error", error: heard.error };
+  const r = voice.interpret(heard, { ask, focus });
+  if (r.kind === "mute") setVoice({ mic: false }, slug);
+  if (t && onScreenNow(t) && ["message", "answer", "unclear"].includes(r.kind)) screen.toast(`Heard: “${r.text.slice(0, 70)}”`, r.kind === "unclear" ? "yellow" : "blue");
+  return { ...r, ms: heard.ms };
+}
+
 // ---------- git sync, debounced ----------
 
 let syncTimer = null;
@@ -646,8 +725,9 @@ function turn(slug, content = [], opts = {}) {
   const said = content.map((c) => c.text || "").join("\n");
   // (an end-of-session action is made in Teach, not on their screen: no "run it with the screen guide's loop")
   const starting = !engine.isAlive(slug) && t.settings.screen && !opts.action && !said.startsWith("[Teach app] screen") ? [SCREEN_STATE] : [];
-  const pre = [...starting, ...(live ? notes.get(slug) || [] : []), ...(done?.length ? [`[Teach app] board\n${done.join("\n")}`] : []), ...prof].map((text) => ({ type: "text", text }));
-  notes.delete(slug); boardNotes.delete(slug);
+  const spoken = engine.isAlive(slug) ? voiceNotes.get(slug) || [] : opts.action ? [] : voiceStart(t);   // narration in Teach, voice input
+  const pre = [...starting, ...spoken, ...(live ? notes.get(slug) || [] : []), ...(done?.length ? [`[Teach app] board\n${done.join("\n")}`] : []), ...prof].map((text) => ({ type: "text", text }));
+  notes.delete(slug); boardNotes.delete(slug); voiceNotes.delete(slug);
   if (engine.isAlive(slug)) return engine.send(slug, [...pre, ...(content.length ? content : [{ type: "text", text: `[Teach app] back\n${Learner} is here. Continue.` }])]);
   const how = engine.plan(slug, opts);
   const note = kickoff(t, how, opts) || (content.length ? null : `[Teach app] back\n${Learner} is back${t.next ? ` (resume note: ${t.next})` : ""}. Say where we are in one line, then continue.`);
@@ -778,9 +858,10 @@ async function route(req, res) {
 
   if (m === "GET" && p === "/api/events") {
     res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-store", Connection: "keep-alive" });
-    const c = { res, topic: url.searchParams.get("topic") || undefined, home: !url.searchParams.get("topic") };
+    const c = { res, topic: url.searchParams.get("topic") || undefined, home: !url.searchParams.get("topic"), id: String(url.searchParams.get("client") || "").slice(0, 40) };
     clients.add(c);
     res.write(`data: ${JSON.stringify({ t: "hello" })}\n\n`);
+    res.write(`data: ${JSON.stringify({ t: "voice", voice: voiceView(c.topic && store.getTopic(c.topic)) })}\n\n`);
     if (c.topic) {
       const st = engine.status(c.topic);
       res.write(`data: ${JSON.stringify({ t: "state", ...st })}\n\n`);
@@ -789,8 +870,50 @@ async function route(req, res) {
       stage.refreshTopic(c.topic);
     }
     const ping = setInterval(() => res.write(": ping\n\n"), 25e3);
-    req.on("close", () => { clearInterval(ping); clients.delete(c); });
+    req.on("close", () => {
+      clearInterval(ping); clients.delete(c);
+      // the listening page went away (closed, reloaded, asleep): the mic is free for the next page that wants it
+      if (c.id && mic.client === c.id && ![...clients].some((x) => x.id === c.id)) { mic.client = null; voiceChanged(); }
+    });
     return;
+  }
+
+  // ---------- voice (lib/voice.mjs) ----------
+  if (p === "/api/voice" && m === "GET") return json(res, 200, voiceView(url.searchParams.get("topic") && store.getTopic(url.searchParams.get("topic"))));
+  if (p === "/api/voice" && m === "POST") {
+    const b = JSON.parse((await readBody(req)).toString() || "{}");
+    const slug = /^[a-z0-9-]+$/.test(b.topic || "") && store.getTopic(b.topic) ? b.topic : null;
+    setVoice(b, slug);
+    return ok(res, { voice: voiceView(slug && store.getTopic(slug)) });
+  }
+  if (p === "/api/voice/claim" && m === "POST") {   // this page listens from now on (the other one stops)
+    const b = JSON.parse((await readBody(req)).toString() || "{}");
+    if (!b.client) return json(res, 400, { error: "client" });
+    if (b.release) { if (mic.client === String(b.client)) { mic.client = null; voiceChanged(); } return ok(res); }   // (that page left the lesson)
+    Object.assign(mic, { client: String(b.client).slice(0, 40), at: Date.now() });
+    if (voice.prefs().mic) voice.sttWarm();
+    voiceChanged();
+    return ok(res);
+  }
+  if (p === "/api/voice/hear" && m === "POST") {   // a clip of them talking: ?topic=&card=&focus=, the body a WAV
+    const slug = url.searchParams.get("topic") || "";
+    if (!/^[a-z0-9-]+$/.test(slug) || !store.getTopic(slug)) return json(res, 404, { error: "no such topic" });
+    if (!voice.sttReady()) return json(res, 503, { error: "no speech-to-text here (TEACH_STT_CMD)" });
+    const clip = await readBody(req, 8 << 20);
+    if (clip.subarray(0, 4).toString() !== "RIFF") return json(res, 400, { error: "send a WAV" });
+    return json(res, 200, await hear(slug, clip, { card: url.searchParams.get("card") || "", focus: Number(url.searchParams.get("focus") || 0) }));
+  }
+  if (p === "/api/voice/parts" && m === "POST") {   // a reply (or a question card) -> the pieces to say, in order
+    const b = JSON.parse((await readBody(req)).toString() || "{}");
+    const text = b.ask ? voice.askSpeech(b.ask, Number(b.i || 0)) : String(b.text || "");
+    return json(res, 200, { parts: voice.speechParts(text) });
+  }
+  if (p === "/api/voice/tts" && m === "POST") {   // one piece -> a WAV in the install's voice (503: the page uses the browser's)
+    const b = JSON.parse((await readBody(req)).toString() || "{}");
+    const w = await voice.synth(String(b.text || "").slice(0, 600));
+    if (!w) return json(res, 503, { error: "no voice here" });
+    res.writeHead(200, { "Content-Type": "audio/wav", "Content-Length": w.length, "Cache-Control": "no-store" });
+    return res.end(w);
   }
 
   if (await courses.route(req, res, url, readBody)) return;
@@ -962,7 +1085,7 @@ async function route(req, res) {
       const byType = {}; for (const i of deck.items) byType[i.type] = (byType[i.type] || 0) + 1;
       return json(res, 200, { topic: t, status: { ...engine.status(slug), streaming: undefined }, link: { ...screen.link }, live: store.getRuntime(slug).live || null, deck: { byType, groups: deck.groups, total: deck.items.length },
         files: store.topicFiles(slug), hasLog: fs.existsSync(path.join(store.topicDir(slug), "log.md")), hasSheet: fs.existsSync(path.join(store.topicDir(slug), "sheet.md")),
-        due: review.counts().by[slug] || 0, next: engine.isAlive(slug) ? null : engine.plan(slug), focus: !!focusBlock(),
+        due: review.counts().by[slug] || 0, next: engine.isAlive(slug) ? null : engine.plan(slug), focus: !!focusBlock(), voice: voiceView(t),
         features: { sync: SYNC === "git-pr", capture: !!CAPTURE_CMD, open: !!OPEN_CMD, screen: screen.installed() && PROVIDER.can.screen }, tutor: TUTOR });
     }
     if (m === "GET" && action === "history") return json(res, 200, { items: topicHistory(t) });
@@ -994,7 +1117,8 @@ async function route(req, res) {
           if (/\.(png|jpe?g|gif|webp)$/i.test(dst) && fs.statSync(dst).size < 4.5e6) content.push({ type: "image", source: { type: "base64", media_type: MIME[path.extname(dst).toLowerCase()], data: fs.readFileSync(dst).toString("base64") } });
         }
         const text = String(b.text || "").trim();
-        if (text || files.length) content.push({ type: "text", text: text + (files.length ? `${text ? "\n\n" : ""}Attached: ${files.join(", ")}` : "") });
+        const spoken = b.via === "voice" && text ? `(spoken) ${text}` : text;   // voice input: the tutor knows it went through speech-to-text
+        if (text || files.length) content.push({ type: "text", text: spoken + (files.length ? `${text ? "\n\n" : ""}Attached: ${files.join(", ")}` : "") });
         if (!content.length) return json(res, 400, { error: "empty" });
         // Super+/ on the screen (`teach tell`): the page didn't echo it, so show it there
         if (b.via === "screen") emit(slug, { t: "user", id: `screen-${Date.now()}`, text, images: [], at: store.now(), via: "screen" });
@@ -1003,10 +1127,15 @@ async function route(req, res) {
         // the tutor is waiting on the screen: hand the words to that watch, which answers within the same turn
         if (engine.status(slug).watching !== null && content.length === 1 && text) {
           boardApply(slug, { t: "turn", id: `live-${boardInst}-${++turnSeq}`, user });
-          screen.toInbox(slug, text);
+          screen.toInbox(slug, spoken);
           return ok(res, { to: "watch" });
         }
         turn(slug, content, { user });
+        return ok(res);
+      }
+      case "speaking": {   // mcp.mjs: the tutor's say is playing on their computer (on), or it's done (off)
+        Object.assign(speaking, { on: !!b.on, slug, until: b.on ? Date.now() + Math.min(120, Number(b.seconds) || 20) * 1000 : 0 });
+        toAll({ t: "speaking", on: speaking.on, seconds: b.on ? Math.min(120, Number(b.seconds) || 20) : 0 });
         return ok(res);
       }
       case "answer": {
@@ -1040,7 +1169,7 @@ async function route(req, res) {
         catch (e) { return json(res, e.code || 400, { error: e.message }); }
       }
       case "stop": if (jobs.has(slug) && store.getTopic(slug).outputs?.[jobs.get(slug).kind]?.state === "working") { pauseAction(slug, jobs.get(slug).kind); return ok(res); }   // Esc while making something: a pause
-        engine.interrupt(slug); if (onScreenNow(t)) screen.hush(); return ok(res);
+        engine.interrupt(slug); if (onScreenNow(t)) { screen.hush(); speakingOff(); } return ok(res);
       case "pause": case "done": endSession(slug, action); return ok(res);
       case "fresh": {
         engine.close(slug);
@@ -1054,7 +1183,6 @@ async function route(req, res) {
           if (["medium", "high", "xhigh"].includes(b.effort)) x.settings.effort = b.effort;
           if (typeof b.review === "boolean") x.settings.review = b.review;
           if (typeof b.screen === "boolean" && (PROVIDER.can.screen || !b.screen)) x.settings.screen = b.screen;   // (screen mode: Claude Code only)
-          if (typeof b.voice === "boolean") x.settings.voice = b.voice;
           if (typeof b.autoScreen === "boolean") x.settings.autoScreen = b.autoScreen;
           if (typeof b.title === "string" && b.title.trim()) x.title = b.title.trim().slice(0, 90);
           if (typeof b.deadline === "string" && (!b.deadline || /^\d{4}-\d{2}-\d{2}$/.test(b.deadline))) x.deadline = b.deadline;
@@ -1071,7 +1199,7 @@ async function route(req, res) {
           if (!(b.screen && wasLive)) switchMode(slug, b.screen ? SCREEN_ON : engine.isAlive(slug) ? SCREEN_OFF : null);
           if (wasLive) emit(slug, { t: "live", live: null });
         }
-        if (b.voice === false) screen.hush();
+        if (typeof b.voice === "boolean") setVoice({ narrate: { screen: b.voice } }, slug);   // (the old "Talk out loud on my screen" switch)
         emit(slug, { t: "topic" });
         return ok(res);
       }

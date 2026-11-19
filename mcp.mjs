@@ -19,6 +19,7 @@ import * as board from "./lib/board.mjs";
 import { fileTools, callFile } from "./lib/files.mjs";
 import { renderDoc, describe as describeDoc } from "./lib/doc.mjs";
 import { layoutFor } from "./lib/actions.mjs";
+import { prefs as voicePrefs } from "./lib/voice.mjs";
 import { CHALK, ROUTE_TTL, takeInbox, chalk, speakSeconds, toast, panel, reviewPanel, reviewGood, screenable, isLive, OFF_SCREEN, staleCards, noteCheck } from "./lib/screen.mjs";
 
 const TOPIC = process.env.TEACH_TOPIC;
@@ -433,12 +434,21 @@ async function moveTo(args) {
   return r.ok ? r.text : { error: `Not now: ${r.reason}` };
 }
 
+// While a line plays on their computer, the server knows (and the page's microphone, if it's on, doesn't take the
+// tutor's own voice from the speakers for their answer). Lines queue in chalk, so "speaking" lasts until the last ends.
+let saying = 0, sayingSecs = 0;
 function say(args) {
   const text = String(args.text || "").replace(/\s+/g, " ").trim();
   if (!text) throw new Error("text is empty");
-  if (getTopic(TOPIC)?.settings.voice === false) return "Voice is off (turned off in Teach): the words show only in the Teach window. Put anything they have to act on on their screen as a label or card.";
-  chalk(["say", text]);
-  return `Speaking (about ${speakSeconds(text)} s).`;
+  if (!voicePrefs(getTopic(TOPIC)).narrate.screen) return "Narration on their screen is off (they turned it off in Teach): the words show only in the Teach window. Put anything they have to act on on their screen as a label or card.";
+  const secs = speakSeconds(text);
+  const p = chalk(["say", text]);
+  if (p) {
+    saying++; sayingSecs += secs + 3;   // (+3: making the audio)
+    server(`/api/topics/${TOPIC}/speaking`, { on: true, seconds: sayingSecs });
+    p.on("exit", () => { sayingSecs = Math.max(0, sayingSecs - secs - 3); if (--saying === 0) { sayingSecs = 0; server(`/api/topics/${TOPIC}/speaking`, { on: false }); } });
+  }
+  return `Speaking (about ${secs} s).`;
 }
 
 async function call(name, args, id) {
