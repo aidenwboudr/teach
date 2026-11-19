@@ -151,7 +151,7 @@ function measureBoard() {
   });
 }
 const SHELF_KIND = { note: "Note", ask: "Questions", scene: "Scene", figure: "Figure" };
-const ASK_NAME = { probe: "Probe", check: "Check", review: "Review", setup: "Setup", approve: "Your call", practice: "Practice" };
+const ASK_NAME = { probe: "Probe", check: "Check", review: "Review", setup: "Setup", approve: "Your call", practice: "Practice", break: "Break" };
 function blockTitle(x) {
   if (x.kind === "note") return x.title || (String(x.body || "").match(/^\s*#*\s*(.{1,80})/) || [])[1]?.replace(/[*_`$]/g, "") || "Note";
   if (x.kind === "ask") return x.ask?.title || ASK_NAME[x.ask?.purpose] || "Questions";

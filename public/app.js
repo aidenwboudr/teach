@@ -453,7 +453,7 @@ function topicShell() {
           <details class="menu">
             <summary class="btn btn-icon" aria-label="Topic menu">${icon("more")}</summary>
             <ul class="menu-list" role="menu">
-              <li><button type="button" role="menuitem" data-menu="pause">Pause <kbd>P</kbd></button></li>
+              <li><button type="button" role="menuitem" data-menu="pause" title="Stop the session right now, mid-anything: the same stop as &quot;Stop here for today&quot; on the tutor's break card">Stop for today <kbd>P</kbd></button></li>
               <li><button type="button" role="menuitem" data-menu="fresh">Fresh session</button></li>
               <li><button type="button" role="menuitem" data-menu="done">Mark done</button></li>
               <li><button type="button" role="menuitem" data-menu="next">What next…</button></li>
@@ -475,8 +475,9 @@ function topicShell() {
 
 async function menuAction(what) {
   const slug = T.slug;
-  if (what === "pause") { await api(`/api/topics/${slug}/pause`, {}); toast("Pausing: the tutor is noting where you stopped."); N.open = true; }
-  if (what === "done") { if (confirm("Mark this topic done? The tutor writes the recap and updates your profile; then you pick what to make next (nothing is made until you click it).")) { await api(`/api/topics/${slug}/done`, {}); toast("Wrapping up…"); N.open = true; nextRefresh(0); } }
+  // (the server answers both, and a stop picked on the tutor's break card, with an "ending" event: nextEvent opens the grid)
+  if (what === "pause") await api(`/api/topics/${slug}/pause`, {});
+  if (what === "done") { if (confirm("Mark this topic done? The tutor writes the recap and updates your profile; then you pick what to make next (nothing is made until you click it).")) await api(`/api/topics/${slug}/done`, {}); }
   if (what === "fresh") { if (confirm("Start a fresh session? The plan and log stay; the tutor starts from them with a clean context.")) { await api(`/api/topics/${slug}/fresh`, {}); toast("The next message starts a fresh session."); } }
   if (what === "settings") settingsDialog();
   if (what === "next") { if (T.tab !== "lesson") { go(`/t/${slug}`); setTimeout(nextOpen, 300); } else nextOpen(); }
@@ -541,7 +542,7 @@ async function mountLesson(shell) {
             <button class="chip" type="button" data-quick="Hint, please.">Hint</button>
             <button class="chip" type="button" data-quick="Can you explain that another way?">Explain another way</button>
             <button class="chip" type="button" data-quick="Can I see a worked example?">Example</button>
-            <button class="chip" type="button" data-quick="pause">Pause</button>
+            <button class="chip" type="button" data-quick="pause" title="Stop the session here: the tutor writes the recap, then you pick what to make (P)">Stop for today</button>
           </div>
           <form class="composer">
             <div class="attach-row" hidden></div>
@@ -626,7 +627,7 @@ function transcriptItem(it) {
 
 // ---------- question cards ----------
 
-const PURPOSE = { probe: "Probe", check: "Check", review: "Review", setup: "Setup", approve: "Your call", practice: "Practice" };
+const PURPOSE = { probe: "Probe", check: "Check", review: "Review", setup: "Setup", approve: "Your call", practice: "Practice", break: "Break" };
 
 function paintAsk(card) {
   const { it } = card, ask = it.ask, open = it.status === "pending";
@@ -1000,7 +1001,7 @@ function onTopicEvent(ev) {
     if (now !== was) toast(now ? "Super+/ now asks the tutor" : T.link?.ok === false ? "Laptop offline · the lesson goes on here" : "Super+/ is plain chalk again", now ? "teal" : "gold");
     return;
   }
-  if (ev.t === "actions") return nextEvent(ev);
+  if (ev.t === "actions" || ev.t === "ending") return nextEvent(ev);
   if (ev.t === "topic") return refreshTopic();
   if (ev.t === "activity") nextEvent(ev);
   if (ev.t === "live") { T.data.live = ev.live; paintDock(); return; }

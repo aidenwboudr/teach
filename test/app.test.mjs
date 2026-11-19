@@ -110,6 +110,28 @@ test("ask: drops a written-in I don't know, keeps the key, shuffles stably", () 
   assert.equal(setup.questions[0].idk, false);
 });
 
+test("ask: a break card's options are the app's, and each says which stop it is", () => {
+  // the tutor's own options are ignored: the app writes them, so a pick maps to Stop for today without guessing
+  const a = ops.shuffleAsk(ops.normalizeAsk({ purpose: "break", intro: "Six steps done.", finish: "7",
+    questions: [{ prompt: "Step 7 is short. Your call?", options: ["Sure", "Nah"], answer: 0 }] }), "s");
+  const q = a.questions[0];
+  assert.deepEqual(q.options, ["Stop here for today", "Do step 7 and then stop", "Keep going"]);
+  assert.deepEqual(q.stops, ["now", "after", ""]);
+  assert.equal(a.finish, "7");
+  assert.equal(q.idk, false);
+  assert.equal(q.own, true);
+  assert.equal(q.answer, undefined, "not graded, so not shuffled");
+  assert.equal(ops.breakStop(a, [{ choice: 0 }]), "now");
+  assert.equal(ops.breakStop(a, [{ choice: 1 }]), "after");
+  assert.equal(ops.breakStop(a, [{ choice: 2 }]), null);
+  assert.equal(ops.breakStop(a, [{ own: "ten more minutes" }]), null);
+  assert.equal(ops.breakStop(a, [{ skip: true }]), null);
+  const plain = ops.normalizeAsk({ purpose: "break", questions: [{ prompt: "Stop?" }] });
+  assert.deepEqual(plain.questions[0].options, ["Stop here for today", "Keep going"]);
+  assert.equal(ops.breakStop(ops.normalizeAsk({ purpose: "setup", questions: [{ prompt: "?", options: ["Stop here for today", "Keep going"] }] }), [{ choice: 0 }]), null,
+    "only a break card stops the session");
+});
+
 test("grading and the answers message", () => {
   const ask = ops.normalizeAsk({ questions: [
     { prompt: "V?", options: ["1", "2"], answer: 1 },
