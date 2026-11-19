@@ -57,6 +57,13 @@ export function findChrome({ platform = process.platform, env = process.env, exi
 export const isHeadlessShell = (bin) => /chrome-headless-shell(\.exe)?$/i.test(path.basename(String(bin || "")));
 export const chromeArgs = (bin) => [...(isHeadlessShell(bin) ? [] : ["--headless=new"]), "--no-sandbox", "--disable-gpu", "--hide-scrollbars", "--allow-file-access-from-files"];
 
+// Delete a run's throwaway --user-data-dir. On Windows a Chrome helper process can hold a file in it for a moment
+// after the browser exits (EBUSY), so retry for a while, then leave it to the OS's temp cleanup: a profile left
+// behind must never fail the render it was for.
+export function removeProfile(dir, rm = fs.rmSync) {
+  try { rm(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }); return true; } catch { return false; }
+}
+
 export async function renderSvg(input, output) {
   const { renderFigure } = await import("../lib/figure-render.mjs");   // (it imports findChrome from here)
   return renderFigure(input, { out: output });

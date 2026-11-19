@@ -14,12 +14,23 @@ Object.assign(process.env, { HOME, USERPROFILE: HOME, TEACH_CONFIG: "/dev/null",
   TEACH_WORK: path.join(tmp, "work"), TEACH_PROJECTS: path.join(tmp, "projects"), TEACH_ACCESS: "", TEACH_SAFE: "" });
 for (const d of ["learning", "work", "state"]) fs.mkdirSync(path.join(tmp, d), { recursive: true });
 const pf = await import("../lib/platform.mjs");
-const { svgSize, findChrome, chromeArgs } = await import("../skill/render-svg.mjs");
+const { svgSize, findChrome, chromeArgs, removeProfile } = await import("../skill/render-svg.mjs");
 const { permit, policyFor } = await import("../lib/engine.mjs");
 const setupMod = await import("../lib/setup.mjs");
 const { APP, LEARNING, WORK } = await import("../lib/paths.mjs");
 
 const files = (list) => (f) => list.includes(f);
+
+test("a render's Chrome profile: deleted, but a file Windows still holds doesn't fail the render", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "teach-profile-test-"));
+  fs.writeFileSync(path.join(dir, "Account Web Data"), "x");
+  assert.equal(removeProfile(dir), true);
+  assert.ok(!fs.existsSync(dir));
+  let opts = null;
+  const busy = (p, o) => { opts = o; throw Object.assign(new Error(`EBUSY: resource busy or locked, unlink '${p}'`), { code: "EBUSY" }); };
+  assert.equal(removeProfile("C:\\Temp\\teach-figure-x", busy), false, "it gives up quietly");
+  assert.ok(opts.maxRetries >= 5 && opts.retryDelay >= 100, "after retrying for a while");
+});
 
 test("command: JS runs under this Node everywhere; other commands start as they are off Windows", () => {
   assert.deepEqual(pf.command("/x/fake-claude.cjs", ["-p"], { platform: "linux", node: "/n" }), { file: "/n", args: ["/x/fake-claude.cjs", "-p"] });
