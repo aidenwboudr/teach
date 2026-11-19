@@ -262,3 +262,38 @@ test("step progress shows as a toast on his screen", LINUX, async () => {
   assert.match(log(), /toast Step 2 of 2 · Hide a layer --color blue/);
   s.close();
 });
+
+// ---------- code on cards: a few lines at a time, never a whole file ----------
+
+test("drawCheck: a whole file on a card is refused with what to do; a short, explained chunk goes up", async () => {
+  const s = await import("../lib/screen.mjs");
+  const fence = (n, lang = "c") => "```" + lang + "\n" + Array.from({ length: n }, (_, i) => `int x${i};`).join("\n") + "\n```";
+  // the card that ran off the laptop's screen: a whole main.c, 79 lines in one block
+  const wall = s.drawCheck([{ kind: "card", title: "8b. src/main.c (replace all of it)", text: fence(79) + "\nEasiest: nano." }]);
+  assert.match(wall, /79-line block.*at most 12 lines.*screen_open/s);
+  assert.equal(s.drawCheck([{ kind: "card", title: "The config", text: fence(10) + "\nThe rate sets the sample clock." }]), null);
+  assert.match(s.drawCheck([{ kind: "card", title: "x", text: fence(6) }]), /bare code/, "more than a few lines need words beside them");
+  assert.equal(s.drawCheck([{ kind: "card", title: "Build it", text: fence(1, "bash") }]), null, "a one-line command is fine bare");
+  assert.match(s.drawCheck([{ kind: "card", title: "a", text: fence(10) + "\nwhat the first loop does" }, { kind: "card", title: "b", text: fence(10) + "\nwhat the second loop does" }]), /20 lines of code together/);
+  assert.equal(s.drawCheck([{ kind: "circle", box: [1, 2, 3, 4], label: "this one" }]), null);
+  assert.equal(s.drawCheck(undefined), null);
+  assert.deepEqual(s.codeIn("a\n```c\nx\ny\n```\nb ```one```").blocks, [2, 1]);
+  assert.deepEqual(s.codeIn("```c\nnever closed\nline").blocks, [2], "an unclosed fence still counts");
+});
+
+test("noteCheck: a board note holds up to 30 lines of code in a block", async () => {
+  const s = await import("../lib/screen.mjs");
+  const body = (n) => "What the loop does.\n```c\n" + "x;\n".repeat(n) + "```";
+  assert.equal(s.noteCheck({ id: "code", body: body(30) }), null);
+  assert.match(s.noteCheck({ id: "code", body: body(31) }), /Nothing changed: the note "code" has a 31-line block/);
+});
+
+test("card tags: cards carry their plan step and come down when it moves on", async () => {
+  const s = await import("../lib/screen.mjs");
+  const { shapes, tags } = s.tagCards([{ kind: "arrow", box: [0, 0, 1, 1] }, { kind: "card", text: "x" }, { kind: "card", text: "y", tag: "mine" }, { kind: "sketch", items: [] }], "7", 100);
+  assert.deepEqual(tags, ["teach-card-s7-101", "teach-card-s7-103"]);
+  assert.equal(shapes[0].tag, undefined); assert.equal(shapes[2].tag, "mine", "the tutor's own tag stays");
+  assert.equal(s.cardStep("teach-card-s4f-12"), "4f");
+  assert.deepEqual(s.staleCards(["teach-card-s7-1", "teach-card-s8-2", "teach-card-snone-3"], "8"), ["teach-card-s7-1", "teach-card-snone-3"]);
+  assert.deepEqual(s.staleCards(["teach-card-s8-2"], undefined), ["teach-card-s8-2"], "no current step (it was just marked done): all of them");
+});

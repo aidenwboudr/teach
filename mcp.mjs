@@ -19,7 +19,7 @@ import * as board from "./lib/board.mjs";
 import { fileTools, callFile } from "./lib/files.mjs";
 import { renderDoc, describe as describeDoc } from "./lib/doc.mjs";
 import { layoutFor } from "./lib/actions.mjs";
-import { CHALK, ROUTE_TTL, takeInbox, chalk, speakSeconds, toast, panel, reviewPanel, reviewGood, screenable, isLive, OFF_SCREEN } from "./lib/screen.mjs";
+import { CHALK, ROUTE_TTL, takeInbox, chalk, speakSeconds, toast, panel, reviewPanel, reviewGood, screenable, isLive, OFF_SCREEN, staleCards, noteCheck } from "./lib/screen.mjs";
 
 const TOPIC = process.env.TEACH_TOPIC;
 // The screen tools (say, watch, review, screen; chalk's own MCP server adds look/draw/clear): there when chalk is. They
@@ -460,6 +460,8 @@ async function call(name, args, id) {
       const op = board.normalizeOp(args);
       const b = await readBoard();
       for (const n of op.put) {
+        const wall = noteCheck(n);
+        if (wall) throw new Error(wall);
         const x = b?.blocks.find((y) => y.id === n.id);
         if (x && x.kind !== "note") throw new Error(`"${n.id}" is a ${x.kind === "ask" ? "question set" : x.kind} on the board; give the note an id of its own`);
       }
@@ -476,6 +478,10 @@ async function call(name, args, id) {
         const done = t.plan.filter((x) => x.status === "done").length;
         toast(args.status === "current" ? `Step ${i + 1} of ${t.plan.length} · ${n.title}` : `Step ${i + 1} ${args.status === "done" ? "done" : "shaky, we'll come back"} · ${done} of ${t.plan.length}`,
           args.status === "done" ? "green" : args.status === "shaky" ? "yellow" : "blue");
+      }
+      if (live() && ["done", "shaky", "skipped", "current"].includes(args.status)) {   // the step moved on: its cards come down
+        const stale = staleCards(getRuntime(TOPIC).screenCards, t.plan.find((x) => x.status === "current")?.id);
+        if (stale.length) chalk(["remove", ...stale]);
       }
       if (args.status !== "current") return `Step ${n.id} is ${n.status}.`;
       const b = await readBoard();

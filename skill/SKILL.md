@@ -210,6 +210,10 @@ material is graded.
     says when and how); you don't need the switch for that.
   - Without it, teach with `task` questions they do in the app, and ask for a screenshot when you need to
     see their work.
+  - **Code comes a few lines at a time**, with what the key lines do next to it: on a screen card at most 12
+    lines, in a board note at most 30 in one block (the app refuses more and says why). A whole file never goes
+    on a card: on their screen, `screen_open` opens it in their editor at a line and you point at the lines
+    that matter; on the board, give its path and show the part this step is about.
 - **curiosity / quick:**
   - A short probe (2-4 questions) and a small plan.
   - Same rigor, less ceremony.

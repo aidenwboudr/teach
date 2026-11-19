@@ -106,6 +106,11 @@ test("ready(): what `chalk ready` said, an unreachable laptop, and an older chal
 // A fake tutor: logs what it hears (and the initialize request), and on "DRAW" asks the engine's PreToolUse hook about
 // a chalk screen_draw the way Claude Code does, logging the answer.
 const FAKE = path.join(tmp, "claude"), HEARD = path.join(tmp, "heard.log"), CTRL = path.join(tmp, "control.log");
+const DRAWS = path.join(tmp, "draws.json");   // what the fake draws on "WALL" (a whole file on a card) and "CARD"
+const fence = (code) => "\u0060\u0060\u0060c\n" + code + "\n\u0060\u0060\u0060";
+fs.writeFileSync(DRAWS, JSON.stringify({
+  wall: [{ kind: "card", title: "main.c", text: fence(Array.from({ length: 40 }, (_, i) => `int x${i} = ${i};`).join("\n")) }],
+  card: [{ kind: "circle", box: [1, 2, 3, 4] }, { kind: "card", title: "Rate", text: fence("int rate = 16000;") + "\nThe rate sets how many samples a second." }] }));
 fs.writeFileSync(FAKE, `#!${process.execPath}
 const fs = require("fs"), out = (m) => process.stdout.write(JSON.stringify(m) + "\\n");
 let n = 0;
@@ -117,6 +122,9 @@ require("readline").createInterface({ input: process.stdin }).on("line", (line) 
   fs.appendFileSync(${JSON.stringify(HEARD)}, JSON.stringify(text) + "\\n");
   if (!n) out({ type: "system", subtype: "init", session_id: "33333333-3333-4333-8333-333333333333" });
   n++;
+  const draws = JSON.parse(fs.readFileSync(${JSON.stringify(DRAWS)}, "utf8"));
+  const shapes = text.includes("WALL") ? draws.wall : text.includes("CARD") ? draws.card : null;
+  if (shapes) out({ type: "control_request", request_id: "hook" + n, request: { subtype: "hook_callback", callback_id: "screen-gate", input: { hook_event_name: "PreToolUse", tool_name: "mcp__chalk__screen_draw", tool_input: { shapes } } } });
   if (text.includes("DRAW")) out({ type: "control_request", request_id: "hook" + n, request: { subtype: "hook_callback", callback_id: "screen-gate", input: { hook_event_name: "PreToolUse", tool_name: "mcp__chalk__screen_draw" } } });
   out({ type: "assistant", message: { id: "msg" + n, content: [{ type: "text", text: "Reply " + n + "." }] } });
   out({ type: "result", result: "done", is_error: false });
@@ -214,6 +222,29 @@ test("end to end: the tutor takes a step onto the screen, the learner says stay 
   await until(() => lines(CTRL).filter((m) => m.type === "control_response" && m.response.request_id.startsWith("hook")).length === 2);
   assert.deepEqual(lines(CTRL).filter((m) => m.type === "control_response" && m.response.request_id.startsWith("hook")).at(-1).response.response, {}, "live: chalk's draw is allowed");
   await until(async () => !(await api(`/api/topics/${SLUG}`)).status.busy);
+
+  // a wall of code on a card is refused with what to do instead; a short card goes up tagged with its step,
+  // and comes down when the step moves on
+  const hooks = () => lines(CTRL).filter((m) => m.type === "control_response" && m.response.request_id.startsWith("hook"));
+  store.mutateTopic(SLUG, (x) => { x.plan = [{ id: "1", title: "Open the Pin Planner", status: "current" }, { id: "2", title: "Assign a pin", status: "todo" }]; });
+  await api(`/api/topics/${SLUG}/message`, { text: "WALL" });
+  await until(() => hooks().length === 3);
+  const wall = hooks().at(-1).response.response.hookSpecificOutput;
+  assert.equal(wall.permissionDecision, "deny", "a 40-line code card is refused");
+  assert.match(wall.permissionDecisionReason, /40-line block of code.*at most 12 lines.*screen_open/s);
+  await until(async () => !(await api(`/api/topics/${SLUG}`)).status.busy);
+  await api(`/api/topics/${SLUG}/message`, { text: "CARD" });
+  await until(() => hooks().length === 4);
+  const ok = hooks().at(-1).response.response.hookSpecificOutput;
+  assert.equal(ok.permissionDecision, "allow");
+  assert.equal(ok.updatedInput.shapes[0].tag, undefined, "marks aren't tagged");
+  assert.match(ok.updatedInput.shapes[1].tag, /^teach-card-s1-\d+$/, "the card carries its step");
+  assert.deepEqual(store.getRuntime(SLUG).screenCards, [ok.updatedInput.shapes[1].tag]);
+  await until(async () => !(await api(`/api/topics/${SLUG}`)).status.busy);
+  r = await tutor.call("step", { id: "1", status: "done" });
+  assert.ok(!r.error, r.text);
+  await until(() => chalkLog().includes(`remove ${ok.updatedInput.shapes[1].tag}`));
+  assert.match(chalkLog(), new RegExp(`remove ${ok.updatedInput.shapes[1].tag}`), "the step's done: its card comes down");
 
   // the learner presses "Stay on the board": back, the screen cleared, the voice stopped, the tutor told, no going back
   const before = lines(HEARD).length;

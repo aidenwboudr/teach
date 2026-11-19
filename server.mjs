@@ -84,6 +84,7 @@ engine.onExit = (slug) => {
   scheduleSync("session ended");
   afterTurn.delete(slug);   // a mode note for a turn that never came: the next process starts with the mode as it is
   if (store.getRuntime(slug).live) endLive(slug, "ended");   // a stretch on the screen ends with its tutor
+  else if (store.getTopic(slug)?.settings.screen) screen.chalk(["clear", "--marks"]);   // their switch was on: the session's cards come down with it
   if (!afterRestart.has(slug)) return;
   const note = afterRestart.get(slug);
   afterRestart.delete(slug);
