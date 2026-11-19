@@ -540,6 +540,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--blue); }
   border: 1px solid var(--edge); border-radius: var(--r);
   background: var(--ground);
   font: 400 13px/1.55 var(--font-mono); overflow-x: auto;
+  max-height: min(64vh, 40em); overflow-y: auto; overscroll-behavior: contain;   /* a long block scrolls inside: never taller than the window */
 }
 .prose pre code { font-size: inherit; color: var(--ink); background: none; padding: 0; border-radius: 0; }
 .prose blockquote { margin: 1em 0; padding: 8px 14px; background: var(--ground); border-radius: var(--r-sm); color: var(--ink-2); }   /* no left stripe */
