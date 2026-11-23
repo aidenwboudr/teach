@@ -174,9 +174,11 @@ function listen(topic, handler) {
 }
 
 // A second, quiet stream keeps the due badge and home fresh whatever page is open.
-const homeSource = new EventSource("/api/events");
+// (it carries this page's id: the server frees the microphone when the page that listens goes away)
+const homeSource = new EventSource(`/api/events?client=${encodeURIComponent(VOICE.id)}`);
 homeSource.onmessage = (m) => {
   const ev = JSON.parse(m.data);
+  if (ev.t === "voice" || ev.t === "speaking") voiceEvent(ev);
   if (ev.t === "home" || ev.t === "sync") refreshHome();
   if (ev.t === "courses") coursesEvent(ev);
   if (ev.t === "reviewed") dropReviewed(new Set(ev.keys));
@@ -413,7 +415,7 @@ async function showTopic(slug, tab) {
   T.slug = slug; T.tab = tab;
   document.body.classList.toggle("on-lesson", tab === "lesson");
   if (tab !== "lesson") document.body.classList.remove("focus-mode");
-  try { T.data = await api(`/api/topics/${slug}`); T.link = T.data.link; features(T.data.features); } catch { app.innerHTML = `<main class="home"><div class="empty"><b>No topic “${esc(slug)}”.</b> <a href="/" data-link>Back home</a></div></main>`; return; }
+  try { T.data = await api(`/api/topics/${slug}`); T.link = T.data.link; features(T.data.features); if (T.data.voice) VOICE.s = { ...VOICE.s, ...T.data.voice }; } catch { app.innerHTML = `<main class="home"><div class="empty"><b>No topic “${esc(slug)}”.</b> <a href="/" data-link>Back home</a></div></main>`; return; }
   document.title = `${T.data.topic.title} · Teach`;
   const shell = topicShell();
   app.replaceChildren(shell);
@@ -508,7 +510,9 @@ function settingsDialog() {
         <label class="field-row check"><input type="checkbox" name="review"${t.settings.review !== false ? " checked" : ""}> <span>Include in daily review</span></label>
         <label class="field-row check screen-chip"><input type="checkbox" name="screen"${t.settings.screen ? " checked" : ""}> <span>Teach on my screen</span></label>
         <label class="field-row check screen-chip"><input type="checkbox" name="autoScreen"${t.settings.autoScreen !== false ? " checked" : ""}> <span>The tutor may take a step onto my screen when it's about something there</span></label>
-        <label class="field-row check"><input type="checkbox" name="voice"${t.settings.voice !== false ? " checked" : ""}> <span>Talk out loud on my screen</span></label>
+        <label class="field-row check"><input type="checkbox" name="narrateBoard"${VOICE.s.narrate.board ? " checked" : ""}> <span>Read the tutor's replies out loud in Teach</span></label>
+        <label class="field-row check screen-chip"><input type="checkbox" name="narrateScreen"${VOICE.s.narrate.screen ? " checked" : ""}> <span>Talk out loud on my screen</span></label>
+        ${VOICE.s.stt ? `<label class="field-row check"><input type="checkbox" name="mic"${VOICE.s.mic ? " checked" : ""}> <span>Listen to my voice: what I say becomes my answer (M mutes)</span></label>` : ""}
         <label class="field-row"><span>Status</span><select class="field" name="status">${["active", "paused", "done", "archived"].map((m) => `<option${t.status === m ? " selected" : ""}>${m}</option>`).join("")}</select></label>
         <p class="hint">${tutor.models ? "Model and effort apply" : tutor.effort ? "Effort applies" : "Changes apply"} from the next session${tutor.models ? "" : ` (the model is ${esc(tutor.label)}'s default, or TEACH_MODEL)`}. Archived topics leave the home page and review.</p>
         <div class="acts"><button class="btn btn-primary" value="save">Save</button><button class="btn btn-quiet" value="cancel">Cancel</button></div>
@@ -518,8 +522,10 @@ function settingsDialog() {
   d.addEventListener("close", async () => {
     if (d.returnValue === "save") {
       const f = new FormData($("form", d));
-      await api(`/api/topics/${T.slug}/settings`, { title: f.get("title"), deadline: f.get("deadline"), model: f.get("model"), effort: f.get("effort"), review: f.get("review") === "on", screen: f.get("screen") === "on", voice: f.get("voice") === "on", status: f.get("status"),
+      await api(`/api/topics/${T.slug}/settings`, { title: f.get("title"), deadline: f.get("deadline"), model: f.get("model"), effort: f.get("effort"), review: f.get("review") === "on", screen: f.get("screen") === "on", status: f.get("status"),
         ...($("[name=autoScreen]", d) ? { autoScreen: f.get("autoScreen") === "on" } : {}) });
+      // narration and voice input are the learner's, not the topic's: they hold for every lesson until changed
+      await voiceSet({ narrate: { board: f.get("narrateBoard") === "on", screen: f.get("narrateScreen") === "on" }, ...($("[name=mic]", d) && (f.get("mic") === "on") !== VOICE.s.mic ? { mic: f.get("mic") === "on" } : {}) });   // (only a change: saving on the phone doesn't move the mic there)
       showTopic(T.slug, T.tab);
     }
     d.remove();
@@ -538,7 +544,8 @@ async function mountLesson(shell) {
           <div class="watching" hidden></div>
           <div class="live-bar" hidden></div>
           <div class="quick" aria-label="Quick replies">
-            <button class="chip screen-chip" type="button" aria-pressed="false" title="Teach on your screen: spoken steps, marks where to click, and the tutor watches you do it">${icon("screen", "icon icon-sm")}On my screen</button>
+            <button class="chip screen-chip" type="button" aria-pressed="false" title="Teach on your screen: marks where to click, and the tutor watches you do it">${icon("screen", "icon icon-sm")}On my screen</button>
+            ${voiceChips()}
             <button class="chip" type="button" data-quick="Hint, please.">Hint</button>
             <button class="chip" type="button" data-quick="Can you explain that another way?">Explain another way</button>
             <button class="chip" type="button" data-quick="Can I see a worked example?">Example</button>
@@ -569,11 +576,13 @@ async function mountLesson(shell) {
   nextMount(main);
   renderSide();
   wireComposer(main);
+  voiceWire(main);
   T.status = T.data.status || {};
   const { board } = await api(`/api/topics/${T.slug}/board`);
   boardRender(board);
   paintDock();
   wsPaint();
+  voiceSync();
 }
 
 // ---------- transcript: the whole lesson in order, read-only ----------
@@ -919,12 +928,13 @@ function wireComposer(stream) {
     if (!text && !pending.images.length && !pending.files.length) return;
     const body = { text, images: pending.images.slice(), files: pending.files.filter((f) => f.path).map((f) => f.path) };
     typed = 0;
+    voiceHush();
     boardEcho(text + (body.files.length ? `\n\nAttached: ${pending.files.map((f) => f.name).join(", ")}` : ""), body.images.length);
     ta.value = ""; grow();
     pending.images = []; pending.files = []; paint();
     try { await api(`/api/topics/${T.slug}/message`, body); } catch (err) { boardError(`Couldn't send: ${err.message}`); }
   });
-  $(".stop", form).addEventListener("click", () => api(`/api/topics/${T.slug}/stop`, {}));
+  $(".stop", form).addEventListener("click", () => { voiceHush(); api(`/api/topics/${T.slug}/stop`, {}); });
   $(".screen-chip", stream).addEventListener("click", async (e) => {
     const on = !T.data.topic.settings.screen;
     e.currentTarget.setAttribute("aria-pressed", String(on));
@@ -944,6 +954,7 @@ function paintDock() {
   dock.classList.toggle("is-streaming", !!T.status.busy);
   const t0 = T.data.topic, w = $(".watching", dock);
   $(".screen-chip", dock)?.setAttribute("aria-pressed", String(!!t0.settings.screen));
+  voicePaint();   // (Narrate follows where the lesson is: the board's switch, or the screen's)
   paintLink();
   w.hidden = T.status.watching == null;
   if (!w.hidden) w.innerHTML = `<span class="spinner" aria-hidden="true"></span><span>${T.status.watching ? `Your turn on screen: ${mdi(T.status.watching)}.` : "Your turn on screen."} The tutor is watching. Ask here or with <kbd>Super+/</kbd>.</span>`;
@@ -1006,6 +1017,7 @@ function onTopicEvent(ev) {
   if (ev.t === "activity") nextEvent(ev);
   if (ev.t === "live") { T.data.live = ev.live; paintDock(); return; }
   if (ev.t === "state") { T.status = ev; paintDock(); renderSide(); wsPaint(); paintReply(); return; }
+  voiceOnTopicEvent(ev);   // narration in this window: the tutor's replies and new question cards
   if (T.tab !== "lesson") return;
   switch (ev.t) {
     case "board": return boardRender(ev.board);

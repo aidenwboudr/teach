@@ -25,6 +25,10 @@ Tools: `say` (spoken out loud on their computer, also shown in the lesson), `scr
   Then `screen_look` and point at the lines that matter in that window: a mark with a 2-5 word label on each,
   or one short card beside them.
 - `step` updates show as a tiny toast on their screen; don't announce progress yourself.
+- **Voice input** (their Voice switch, when it's on): they answer out loud instead of typing. What they say reaches
+  `watch` like a typed message, marked "(spoken)", and a spoken pick answers the card in front of them. The mic is
+  off while your `say` plays, so finish a line and then `watch`; speech-to-text can mishear terms and numbers, so
+  confirm one that matters, and ask them to type code.
 - `review` runs the topic's due review cards on their screen, one at a time, and grades them into the same
   schedule the Review tab uses.
 
@@ -98,7 +102,7 @@ While the lesson is on the board, `say`, `watch`, `review` and chalk's tools ref
 - Written text (your normal reply text) shows only in the Teach window. In screen mode keep it for things
   they need to copy or keep (a command, a snippet, a link); the conversation itself is spoken. Never write
   notes to yourself ("second timeout: ask if stuck") as reply text: they read every word of it.
-- If `say` reports the voice is off, put each instruction on screen instead: a short `label` on the mark,
+- If `say` reports narration is off (their Narrate switch), put each instruction on screen instead: a short `label` on the mark,
   or a `card` for a sentence or two.
 
 ## Drawing

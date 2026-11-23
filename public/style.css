@@ -946,6 +946,29 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--blue); }
 @keyframes live-pulse { 50% { opacity: .35; } }
 @media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
 .screen-chip .icon { margin-right: 5px; vertical-align: -2px; }
+/* Narrate and Voice, next to On my screen. The mic chip says what it's doing in words (Listening, Hearing you,
+   Writing it down…, Tutor talking), with a dot and a level meter that moves while it hears them. */
+.voice-chip { display: inline-flex; align-items: center; gap: 5px; }
+.voice-chip .icon { flex: none; }
+.voice-chip[hidden] { display: none; }
+.mic-level { display: none; align-items: flex-end; gap: 2px; height: 11px; margin-left: 2px; }
+.mic-level i { width: 3px; border-radius: 1px; background: currentColor; height: calc(3px + var(--level, 0) * 8px); transition: height 90ms linear; }
+.mic-level i:nth-child(2) { height: calc(3px + var(--level, 0) * 11px * .9); }
+.mic-level i:nth-child(3) { height: calc(3px + var(--level, 0) * 6px); }
+.mic-chip[data-state="listening"], .mic-chip[data-state="hearing"] { border-color: var(--green); color: var(--green); background: var(--green-tint); }
+.mic-chip[data-state="listening"] .mic-level, .mic-chip[data-state="hearing"] .mic-level { display: inline-flex; }
+.mic-chip[data-state="listening"]::before, .mic-chip[data-state="hearing"]::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: live-pulse 1.6s ease-in-out infinite; }
+.mic-chip[data-state="hearing"]::before { animation: none; box-shadow: 0 0 0 3px color-mix(in oklab, var(--green) 30%, transparent); }
+.mic-chip[data-state="thinking"] { border-color: var(--green); color: var(--green); }
+.mic-chip[data-state="paused"], .mic-chip[data-state="starting"] { border-style: dashed; color: var(--ink-2); }
+.mic-chip[data-state="elsewhere"] { border-style: dashed; color: var(--ink-3); }
+.mic-chip[data-state="denied"], .mic-chip[data-state="error"] { border-color: var(--red); color: var(--red); background: var(--red-tint); }
+@media (prefers-reduced-motion: reduce) { .mic-chip::before { animation: none !important; } .mic-level i { transition: none; } }
+/* the three switches (where, narrate, listen) and the quick replies after them */
+.quick-sep { width: 1px; align-self: stretch; margin: 3px 3px; background: var(--edge-strong); }
+/* focus mode hides the quick row, but while the mic is on its chip stays: they always see whether it's listening */
+body.focus-mode .lesson.ws .quick:has(.mic-chip:not([data-state="off"])) { display: flex !important; }
+body.focus-mode .lesson.ws .quick:has(.mic-chip:not([data-state="off"])) > :not(.mic-chip) { display: none !important; }
 .attach-row { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 10px 0; }
 .file-tag img.mini { height: 18px; width: auto; border-radius: 3px; vertical-align: -4px; }
 .side-note { font: 400 13px/1.45 var(--font-ui); color: var(--ink-2); margin: 6px 0 0; }
