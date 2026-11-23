@@ -226,7 +226,8 @@ test("the server: switches for everyone, one listening page, clips heard against
   assert.deepEqual((await api("/api/topics/rc")).voice.narrate, { board: false, screen: true });
   await api("/api/topics/rc/settings", { voice: false });
   assert.equal((await api("/api/voice")).narrate.screen, false);
-  assert.ok(await until(() => fs.existsSync(CHALK_LOG) && /^hush$/m.test(fs.readFileSync(CHALK_LOG, "utf8"))), "turning narration off on the screen hushes it");
+  // (the fake chalk is a script with a #! line, which Windows can't run: screen mode is Linux-only anyway)
+  if (process.platform !== "win32") assert.ok(await until(() => fs.existsSync(CHALK_LOG) && /^hush$/m.test(fs.readFileSync(CHALK_LOG, "utf8"))), "turning narration off on the screen hushes it");
   // the listening page closes: the mic is free for the next one
   await api("/api/voice", { mic: true, client: "phone", topic: "rc" });
   streams[1].abort();
